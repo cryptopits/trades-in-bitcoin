@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIB — Trades in Bitcoin</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:       #0a0a0a;
+  --surface:  #111111;
+  --border:   #1e1e1e;
+  --border2:  #2a2a2a;
+  --text:     #e8e8e8;
+  --muted:    #555;
+  --muted2:   #333;
+  --orange:   #f5820a;
+  --orange2:  #c4650a;
+  --green:    #00c87a;
+  --red:      #e03030;
+  --sp:       #4a9eff;
+  --crude:    #e0a030;
+  --btc:      #f5820a;
+}
+html, body { width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'IBM Plex Sans', sans-serif; overflow:hidden; }
+
+/* ── HEADER ── */
+#header {
+  position:fixed; top:0; left:0; right:0; height:44px;
+  background:var(--bg); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 20px; z-index:100;
+}
+#logo {
+  font-family:'IBM Plex Mono', monospace;
+  font-size:13px; font-weight:600; letter-spacing:3px;
+  color:var(--orange);
+}
+#logo span { color:var(--muted); font-weight:300; }
+#header-right {
+  display:flex; align-items:center; gap:20px;
+  font-family:'IBM Plex Mono', monospace; font-size:10px;
+  color:var(--muted); letter-spacing:1px;
+}
+#btc-live { color:var(--orange); font-weight:500; }
+#btc-change { font-size:10px; }
+#btc-change.pos { color:var(--green); }
+#btc-change.neg { color:var(--red); }
+
+/* ── TOOLBAR ── */
+#toolbar {
+  position:fixed; top:44px; left:0; right:0; height:38px;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 20px; gap:0; z-index:99;
+}
+.range-btn {
+  font-family:'IBM Plex Mono', monospace; font-size:10px;
+  font-weight:500; letter-spacing:1px;
+  color:var(--muted); background:none; border:none;
+  padding:6px 12px; cursor:pointer; transition:color 0.15s;
+  border-right:1px solid var(--border);
+}
+.range-btn:hover { color:var(--text); }
+.range-btn.active { color:var(--orange); }
+.tb-sep { width:1px; background:var(--border2); margin:6px 16px; height:20px; }
+.legend-item {
+  display:flex; align-items:center; gap:6px;
+  font-family:'IBM Plex Mono', monospace; font-size:10px;
+  color:var(--muted); margin-left:4px; margin-right:8px;
+  cursor:pointer; user-select:none; transition:color 0.15s;
+}
+.legend-item:hover { color:var(--text); }
+.legend-item.hidden { opacity:0.35; }
+.legend-dot { width:8px; height:2px; border-radius:1px; }
+#news-toggle {
+  margin-left:auto;
+  font-family:'IBM Plex Mono', monospace; font-size:10px;
+  color:var(--muted); background:none; border:1px solid var(--border2);
+  padding:4px 10px; cursor:pointer; letter-spacing:1px;
+  transition:all 0.15s;
+}
+#news-toggle:hover, #news-toggle.active { color:var(--text); border-color:var(--muted); }
+
+/* ── CHART AREA ── */
+#chart-wrap {
+  position:fixed; top:82px; left:0; right:0; bottom:0;
+  display:flex;
+}
+#y-axis-area {
+  width:62px; flex-shrink:0;
+  border-right:1px solid var(--border);
+  position:relative;
+}
+#chart-scroll {
+  flex:1; overflow-x:auto; overflow-y:hidden; position:relative;
+  scrollbar-width:thin; scrollbar-color:var(--border2) transparent;
+}
+#chart-scroll::-webkit-scrollbar { height:4px; }
+#chart-scroll::-webkit-scrollbar-track { background:transparent; }
+#chart-scroll::-webkit-scrollbar-thumb { background:var(--border2); }
+#chart-inner { position:relative; height:100%; }
+canvas#main-chart { display:block; }
+canvas#overlay-canvas {
+  position:absolute; top:0; left:0; pointer-events:none;
+}
+
+/* ── TOOLTIP ── */
+#tooltip {
+  position:fixed; z-index:200; pointer-events:none;
+  background:rgba(10,10,10,0.97); border:1px solid var(--border2);
+  padding:10px 14px; min-width:220px; max-width:300px;
+  display:none;
+}
+#tt-date { font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--muted); letter-spacing:1px; margin-bottom:8px; }
+.tt-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:16px; }
+.tt-label { font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--muted); letter-spacing:1px; }
+.tt-val { font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600; }
+#tt-news { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:none; }
+#tt-news-icon { font-size:9px; color:var(--muted); letter-spacing:1px; margin-bottom:4px; }
+#tt-news-text { font-size:11px; color:var(--text); line-height:1.5; }
+#tt-news-src { font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--muted); margin-top:4px; }
+
+/* ── CROSSHAIR ── */
+#crosshair-h, #crosshair-v {
+  position:absolute; pointer-events:none; z-index:50; display:none;
+}
+#crosshair-h { left:0; right:0; height:1px; background:var(--border2); }
+#crosshair-v { top:0; bottom:0; width:1px; background:var(--border2); }
+
+/* ── STATUS ── */
+#status {
+  position:fixed; bottom:12px; left:50%; transform:translateX(-50%);
+  font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--muted);
+  letter-spacing:2px; z-index:100; pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="logo">TIB <span>/ TRADES IN BITCOIN</span></div>
+  <div id="header-right">
+    <span>BTC/USD</span>
+    <span id="btc-live">—</span>
+    <span id="btc-change" class="pos">—</span>
+    <span style="color:var(--border2)">|</span>
+    <span id="last-updated">LOADING...</span>
+  </div>
+</div>
+
+<div id="toolbar">
+  <button class="range-btn" data-range="1Y">1Y</button>
+  <button class="range-btn" data-range="2Y">2Y</button>
+  <button class="range-btn active" data-range="5Y">5Y</button>
+  <div class="tb-sep"></div>
+  <div class="legend-item" data-series="btc">
+    <div class="legend-dot" style="background:var(--btc)"></div>BTC/USD
+  </div>
+  <div class="legend-item" data-series="sp">
+    <div class="legend-dot" style="background:var(--sp)"></div>S&P 500
+  </div>
+  <div class="legend-item" data-series="crude">
+    <div class="legend-dot" style="background:var(--crude)"></div>BRENT CRUDE
+  </div>
+  <button id="news-toggle" class="active">● NEWS EVENTS</button>
+</div>
+
+<div id="chart-wrap">
+  <div id="y-axis-area"><canvas id="y-axis-canvas"></canvas></div>
+  <div id="chart-scroll">
+    <div id="chart-inner">
+      <canvas id="main-chart"></canvas>
+      <canvas id="overlay-canvas"></canvas>
+      <div id="crosshair-h"></div>
+      <div id="crosshair-v"></div>
+    </div>
+  </div>
+</div>
+
+<div id="tooltip">
+  <div id="tt-date"></div>
+  <div class="tt-row"><span class="tt-label">BTC/USD</span><span class="tt-val" id="tt-btc" style="color:var(--btc)">—</span></div>
+  <div class="tt-row"><span class="tt-label">S&P 500</span><span class="tt-val" id="tt-sp" style="color:var(--sp)">—</span></div>
+  <div class="tt-row"><span class="tt-label">BRENT</span><span class="tt-val" id="tt-crude" style="color:var(--crude)">—</span></div>
+  <div id="tt-news">
+    <div id="tt-news-icon">▸ NEWS EVENT</div>
+    <div id="tt-news-text"></div>
+    <div id="tt-news-src"></div>
+  </div>
+</div>
+
+<div id="status">LOADING MARKET DATA...</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// NEWS EVENTS — curated top ~65 market-moving events 2020-2025
+// ═══════════════════════════════════════════════
+const NEWS_EVENTS = [
+  // 2020
+  { date:'2020-01-08', src:'Reuters', text:'US-Iran tensions spike after General Soleimani assassination; markets rattle.' },
+  { date:'2020-02-20', src:'BBC', text:'WHO warns COVID-19 may become a pandemic as cases surge outside China.' },
+  { date:'2020-03-09', src:'Reuters', text:'Oil price crashes 30% in one day — worst single-day drop since 1991 Gulf War.' },
+  { date:'2020-03-12', src:'BBC', text:'WHO declares COVID-19 a global pandemic; global markets in freefall.' },
+  { date:'2020-03-23', src:'Reuters', text:'Federal Reserve announces unlimited QE — "whatever it takes" moment for markets.' },
+  { date:'2020-03-25', src:'NPR', text:'US Congress passes $2.2 trillion CARES Act stimulus — largest in US history.' },
+  { date:'2020-05-25', src:'BBC', text:'George Floyd killed by police; US protests and civil unrest sweep the nation.' },
+  { date:'2020-07-21', src:'Reuters', text:'EU agrees €750bn COVID recovery fund, boosting global risk appetite.' },
+  { date:'2020-08-11', src:'Reuters', text:'Russia announces world\'s first COVID-19 vaccine, Sputnik V.' },
+  { date:'2020-09-03', src:'BBC', text:'Tech stocks suffer sharpest selloff since March as Nasdaq drops 10% in days.' },
+  { date:'2020-11-03', src:'NPR', text:'US Presidential Election: Biden projected to defeat Trump; markets rally hard.' },
+  { date:'2020-11-09', src:'BBC', text:'Pfizer announces COVID vaccine 90%+ effective — global markets surge.' },
+  { date:'2020-12-16', src:'Reuters', text:'Bitcoin surpasses $20,000 for the first time ever.' },
+
+  // 2021
+  { date:'2021-01-06', src:'BBC', text:'US Capitol stormed by Trump supporters; markets briefly wobble before recovering.' },
+  { date:'2021-01-27', src:'NPR', text:'GameStop short squeeze peaks — Reddit retail traders vs. Wall Street hedge funds.' },
+  { date:'2021-02-08', src:'Reuters', text:'Tesla announces $1.5bn Bitcoin purchase; institutional crypto adoption accelerates.' },
+  { date:'2021-03-23', src:'BBC', text:'Suez Canal blocked by Ever Given container ship for six days, disrupting global trade.' },
+  { date:'2021-04-14', src:'Reuters', text:'Coinbase lists on Nasdaq in landmark crypto IPO; Bitcoin hits $64,000.' },
+  { date:'2021-05-12', src:'BBC', text:'Elon Musk tweets Tesla will no longer accept Bitcoin; price crashes 15% in hours.' },
+  { date:'2021-05-19', src:'Reuters', text:'China bans financial institutions from crypto services; Bitcoin crashes to $30,000.' },
+  { date:'2021-07-08', src:'NPR', text:'Global markets drop sharply on Delta variant fears and supply chain disruption signals.' },
+  { date:'2021-09-07', src:'BBC', text:'El Salvador becomes first country to adopt Bitcoin as legal tender.' },
+  { date:'2021-10-20', src:'Reuters', text:'First US Bitcoin futures ETF (ProShares) launches; Bitcoin hits new ATH near $67,000.' },
+  { date:'2021-11-26', src:'BBC', text:'Omicron variant detected — markets suffer worst single day since March 2020.' },
+  { date:'2021-12-15', src:'Reuters', text:'Federal Reserve signals three rate hikes in 2022; markets begin repricing risk.' },
+
+  // 2022
+  { date:'2022-01-24', src:'Reuters', text:'Russia amasses 130,000 troops on Ukraine border; NATO on high alert.' },
+  { date:'2022-02-24', src:'BBC', text:'Russia invades Ukraine — largest land war in Europe since WWII begins.' },
+  { date:'2022-03-08', src:'Reuters', text:'Brent Crude hits $139/barrel — highest since 2008 — on Russia sanctions.' },
+  { date:'2022-04-06', src:'NPR', text:'Fed signals aggressive rate hike path; 50bps hike expected in May.' },
+  { date:'2022-05-05', src:'Reuters', text:'Federal Reserve raises rates 50bps — biggest hike in 22 years.' },
+  { date:'2022-05-12', src:'BBC', text:'TerraUSD and Luna stablecoin collapse wipes out $40bn in days; crypto panic.' },
+  { date:'2022-06-13', src:'Reuters', text:'Bitcoin falls below $23,000 — down 70% from ATH; crypto winter confirmed.' },
+  { date:'2022-06-15', src:'Reuters', text:'Fed hikes rates 75bps — most aggressive single hike since 1994.' },
+  { date:'2022-07-13', src:'NPR', text:'US inflation hits 9.1% — highest in 40 years; recession fears peak.' },
+  { date:'2022-09-06', src:'BBC', text:'Liz Truss becomes UK PM; mini-budget triggers UK bond market crisis weeks later.' },
+  { date:'2022-09-15', src:'Reuters', text:'Ethereum completes "The Merge" — switches from Proof of Work to Proof of Stake.' },
+  { date:'2022-11-08', src:'BBC', text:'FTX exchange collapses — Sam Bankman-Fried\'s $32bn empire implodes overnight.' },
+  { date:'2022-11-11', src:'Reuters', text:'FTX files for bankruptcy; crypto contagion spreads across entire industry.' },
+  { date:'2022-12-14', src:'NPR', text:'Fed raises rates to 4.25-4.5% — highest since 2007; signals slower pace ahead.' },
+
+  // 2023
+  { date:'2023-01-12', src:'Reuters', text:'US CPI falls to 6.5% — inflation cooling narrative gains serious traction.' },
+  { date:'2023-02-03', src:'NPR', text:'US adds 517,000 jobs in January — blowout number forces markets to reprice rate path.' },
+  { date:'2023-03-10', src:'BBC', text:'Silicon Valley Bank collapses in 48 hours — second largest US bank failure in history.' },
+  { date:'2023-03-19', src:'Reuters', text:'UBS agrees emergency takeover of Credit Suisse; global banking contagion fears rise.' },
+  { date:'2023-04-05', src:'Reuters', text:'OPEC+ surprises markets with 1.16 million barrel/day output cut.' },
+  { date:'2023-06-05', src:'NPR', text:'US debt ceiling deal reached hours before potential historic default.' },
+  { date:'2023-06-15', src:'Reuters', text:'Fed pauses rate hikes for first time in 15 months; signals two more ahead.' },
+  { date:'2023-07-26', src:'Reuters', text:'Fed raises rates to 5.25-5.5% — 22-year high — likely final hike of the cycle.' },
+  { date:'2023-08-01', src:'BBC', text:'Fitch downgrades US credit rating from AAA to AA+ citing fiscal concerns.' },
+  { date:'2023-10-07', src:'BBC', text:'Hamas attacks Israel in deadliest day for Jews since the Holocaust; Middle East war begins.' },
+  { date:'2023-10-26', src:'Reuters', text:'GDP data shows US economy grew 4.9% in Q3 — far stronger than expected.' },
+  { date:'2023-11-16', src:'NPR', text:'BlackRock Bitcoin ETF application reappears on SEC website — ETF approval expected.' },
+  { date:'2023-12-13', src:'Reuters', text:'Fed signals three rate cuts in 2024 — "pivot" confirmed; risk assets surge.' },
+
+  // 2024
+  { date:'2024-01-10', src:'Reuters', text:'SEC approves first spot Bitcoin ETFs — BlackRock, Fidelity and others launch.' },
+  { date:'2024-01-15', src:'NPR', text:'Bitcoin ETF inflows shatter records in first week; over $4bn in new capital.' },
+  { date:'2024-02-14', src:'Reuters', text:'US inflation comes in hotter than expected at 3.1%; rate cut timeline pushed back.' },
+  { date:'2024-03-05', src:'BBC', text:'Bitcoin surges past $69,000, surpassing its 2021 all-time high.' },
+  { date:'2024-04-19', src:'Reuters', text:'Bitcoin halving occurs — block reward cut from 6.25 to 3.125 BTC.' },
+  { date:'2024-05-15', src:'NPR', text:'US CPI falls to 3.4%; rate cut expectations revive, stocks and crypto rally.' },
+  { date:'2024-06-12', src:'Reuters', text:'FOMC projects only one rate cut in 2024 — hawkish surprise hits risk assets.' },
+  { date:'2024-07-13', src:'BBC', text:'Trump assassination attempt at Pennsylvania rally; markets briefly volatile.' },
+  { date:'2024-07-31', src:'Reuters', text:'Bank of Japan raises rates unexpectedly; yen carry trade unwind sparks global selloff.' },
+  { date:'2024-09-18', src:'Reuters', text:'Federal Reserve cuts rates 50bps — first cut since 2020; risk assets rally.' },
+  { date:'2024-11-05', src:'NPR', text:'Donald Trump wins US Presidential Election; Bitcoin and stocks surge on result.' },
+  { date:'2024-11-07', src:'Reuters', text:'Bitcoin breaks $76,000 post-election; crypto seen as beneficiary of Trump presidency.' },
+  { date:'2024-12-04', src:'BBC', text:'Bitcoin hits $100,000 for the first time in history.' },
+  { date:'2024-12-18', src:'Reuters', text:'Fed cuts rates but signals only two cuts in 2025 — hawkish pivot hits markets.' },
+
+  // 2025
+  { date:'2025-01-20', src:'NPR', text:'Trump inaugurated; signs executive orders on crypto, including Bitcoin reserve proposal.' },
+  { date:'2025-01-23', src:'Reuters', text:'DeepSeek AI from China shocks markets — Nvidia loses $600bn in market cap in one day.' },
+  { date:'2025-02-03', src:'BBC', text:'Trump announces sweeping tariffs on Canada, Mexico and China; trade war fears spike.' },
+  { date:'2025-03-04', src:'Reuters', text:'Trump confirms 25% tariffs on Canada and Mexico go into effect; markets fall sharply.' },
+  { date:'2025-04-02', src:'NPR', text:'Trump\'s "Liberation Day" tariffs announced — broad global tariffs shock markets worldwide.' },
+  { date:'2025-04-07', src:'Reuters', text:'Global markets in freefall — S&P 500 drops 10% in two days on tariff escalation.' },
+  { date:'2025-04-09', src:'BBC', text:'Trump pauses most tariffs for 90 days; markets stage historic single-day recovery.' },
+  { date:'2025-05-12', src:'Reuters', text:'US-China agree 90-day tariff truce; global markets surge on de-escalation.' },
+];
+
+// ═══════════════════════════════════════════════
+// HARDCODED WEEKLY DATA — S&P 500 & BRENT CRUDE (Jan 2020 – May 2025)
+// ═══════════════════════════════════════════════
+const SP500_DATA = [
+  ['2020-01-06',3246],['2020-01-13',3288],['2020-01-20',3320],['2020-01-27',3243],
+  ['2020-02-03',3248],['2020-02-10',3373],['2020-02-17',3380],['2020-02-24',3225],
+  ['2020-03-02',2955],['2020-03-09',2747],['2020-03-16',2305],['2020-03-23',2237],
+  ['2020-03-30',2627],['2020-04-06',2789],['2020-04-13',2874],['2020-04-20',2875],
+  ['2020-04-27',2939],['2020-05-04',2929],['2020-05-11',2930],['2020-05-18',2955],
+  ['2020-05-25',3000],['2020-06-01',3122],['2020-06-08',3193],['2020-06-15',3097],
+  ['2020-06-22',3098],['2020-06-29',3130],['2020-07-06',3179],['2020-07-13',3185],
+  ['2020-07-20',3224],['2020-07-27',3239],['2020-08-03',3294],['2020-08-10',3373],
+  ['2020-08-17',3372],['2020-08-24',3484],['2020-08-31',3500],['2020-09-07',3340],
+  ['2020-09-14',3341],['2020-09-21',3319],['2020-09-28',3298],['2020-10-05',3477],
+  ['2020-10-12',3483],['2020-10-19',3426],['2020-10-26',3270],['2020-11-02',3310],
+  ['2020-11-09',3572],['2020-11-16',3626],['2020-11-23',3635],['2020-11-30',3699],
+  ['2020-12-07',3663],['2020-12-14',3647],['2020-12-21',3703],['2020-12-28',3756],
+  ['2021-01-04',3700],['2021-01-11',3768],['2021-01-19',3768],['2021-01-25',3841],
+  ['2021-02-01',3871],['2021-02-08',3916],['2021-02-16',3906],['2021-02-22',3811],
+  ['2021-03-01',3811],['2021-03-08',3841],['2021-03-15',3990],['2021-03-22',3940],
+  ['2021-03-29',3973],['2021-04-06',4128],['2021-04-12',4127],['2021-04-19',4185],
+  ['2021-04-26',4211],['2021-05-03',4232],['2021-05-10',4173],['2021-05-17',4173],
+  ['2021-05-24',4155],['2021-05-31',4204],['2021-06-07',4247],['2021-06-14',4166],
+  ['2021-06-21',4280],['2021-06-28',4352],['2021-07-06',4369],['2021-07-12',4370],
+  ['2021-07-19',4327],['2021-07-26',4422],['2021-08-02',4437],['2021-08-09',4468],
+  ['2021-08-16',4432],['2021-08-23',4509],['2021-08-30',4523],['2021-09-07',4459],
+  ['2021-09-13',4458],['2021-09-20',4432],['2021-09-27',4357],['2021-10-04',4391],
+  ['2021-10-11',4471],['2021-10-18',4544],['2021-10-25',4594],['2021-11-01',4605],
+  ['2021-11-08',4683],['2021-11-15',4682],['2021-11-22',4698],['2021-11-29',4567],
+  ['2021-12-06',4538],['2021-12-13',4713],['2021-12-20',4620],['2021-12-27',4791],
+  ['2022-01-03',4796],['2022-01-10',4677],['2022-01-18',4620],['2022-01-24',4410],
+  ['2022-01-31',4432],['2022-02-07',4500],['2022-02-14',4418],['2022-02-22',4288],
+  ['2022-02-28',4374],['2022-03-07',4259],['2022-03-14',4204],['2022-03-21',4463],
+  ['2022-03-28',4602],['2022-04-04',4545],['2022-04-11',4397],['2022-04-18',4392],
+  ['2022-04-25',4131],['2022-05-02',4131],['2022-05-09',4023],['2022-05-16',4023],
+  ['2022-05-23',3901],['2022-05-31',4132],['2022-06-06',4108],['2022-06-13',3749],
+  ['2022-06-20',3666],['2022-06-27',3825],['2022-07-05',3899],['2022-07-11',3801],
+  ['2022-07-18',3863],['2022-07-25',3962],['2022-08-01',4118],['2022-08-08',4145],
+  ['2022-08-15',4280],['2022-08-22',4228],['2022-08-29',4057],['2022-09-06',3924],
+  ['2022-09-12',4110],['2022-09-19',3873],['2022-09-26',3585],['2022-10-03',3639],
+  ['2022-10-10',3583],['2022-10-17',3752],['2022-10-24',3797],['2022-10-31',3901],
+  ['2022-11-07',3770],['2022-11-14',3992],['2022-11-21',3965],['2022-11-28',4026],
+  ['2022-12-05',3934],['2022-12-12',3852],['2022-12-19',3852],['2022-12-26',3839],
+  ['2023-01-02',3839],['2023-01-09',3895],['2023-01-16',3999],['2023-01-23',4070],
+  ['2023-01-30',4136],['2023-02-06',4090],['2023-02-13',4090],['2023-02-21',3970],
+  ['2023-02-27',3970],['2023-03-06',3986],['2023-03-13',3861],['2023-03-20',3948],
+  ['2023-03-27',4109],['2023-04-03',4109],['2023-04-10',4137],['2023-04-17',4134],
+  ['2023-04-24',4169],['2023-05-01',4136],['2023-05-08',4136],['2023-05-15',4191],
+  ['2023-05-22',4205],['2023-05-29',4221],['2023-06-05',4282],['2023-06-12',4409],
+  ['2023-06-19',4409],['2023-06-26',4450],['2023-07-03',4398],['2023-07-10',4505],
+  ['2023-07-17',4536],['2023-07-24',4582],['2023-07-31',4588],['2023-08-07',4478],
+  ['2023-08-14',4370],['2023-08-21',4370],['2023-08-28',4515],['2023-09-05',4457],
+  ['2023-09-11',4457],['2023-09-18',4320],['2023-09-25',4320],['2023-10-02',4288],
+  ['2023-10-09',4308],['2023-10-16',4224],['2023-10-23',4117],['2023-10-30',4193],
+  ['2023-11-06',4365],['2023-11-13',4415],['2023-11-20',4514],['2023-11-27',4559],
+  ['2023-12-04',4594],['2023-12-11',4719],['2023-12-18',4754],['2023-12-25',4769],
+  ['2024-01-02',4742],['2024-01-08',4783],['2024-01-15',4783],['2024-01-22',4890],
+  ['2024-01-29',4924],['2024-02-05',4958],['2024-02-12',5005],['2024-02-20',5088],
+  ['2024-02-26',5088],['2024-03-04',5137],['2024-03-11',5149],['2024-03-18',5149],
+  ['2024-03-25',5218],['2024-04-01',5243],['2024-04-08',5202],['2024-04-15',5061],
+  ['2024-04-22',5048],['2024-04-29',5127],['2024-05-06',5180],['2024-05-13',5303],
+  ['2024-05-20',5304],['2024-05-28',5304],['2024-06-03',5277],['2024-06-10',5431],
+  ['2024-06-17',5431],['2024-06-24',5460],['2024-07-01',5475],['2024-07-08',5567],
+  ['2024-07-15',5667],['2024-07-22',5505],['2024-07-29',5537],['2024-08-05',5186],
+  ['2024-08-12',5344],['2024-08-19',5608],['2024-08-26',5648],['2024-09-02',5408],
+  ['2024-09-09',5408],['2024-09-16',5626],['2024-09-23',5702],['2024-09-30',5762],
+  ['2024-10-07',5792],['2024-10-14',5859],['2024-10-21',5864],['2024-10-28',5705],
+  ['2024-11-04',5728],['2024-11-11',5893],['2024-11-18',5870],['2024-11-25',5969],
+  ['2024-12-02',6047],['2024-12-09',6090],['2024-12-16',5931],['2024-12-23',5931],
+  ['2024-12-30',5906],['2025-01-06',5942],['2025-01-13',5827],['2025-01-21',6118],
+  ['2025-01-27',6013],['2025-02-03',6025],['2025-02-10',6025],['2025-02-18',6114],
+  ['2025-02-24',5983],['2025-03-03',5770],['2025-03-10',5638],['2025-03-17',5638],
+  ['2025-03-24',5667],['2025-03-31',5611],['2025-04-07',5074],['2025-04-14',5363],
+  ['2025-04-22',5282],['2025-04-28',5525],['2025-05-05',5651],['2025-05-12',5896],
+  ['2025-05-19',5958],
+];
+
+const CRUDE_DATA = [
+  ['2020-01-06',68],['2020-01-13',64],['2020-01-20',65],['2020-01-27',60],
+  ['2020-02-03',54],['2020-02-10',55],['2020-02-17',58],['2020-02-24',55],
+  ['2020-03-02',52],['2020-03-09',34],['2020-03-16',30],['2020-03-23',27],
+  ['2020-03-30',23],['2020-04-06',33],['2020-04-13',31],['2020-04-20',26],
+  ['2020-04-27',20],['2020-05-04',26],['2020-05-11',29],['2020-05-18',34],
+  ['2020-05-25',35],['2020-06-01',39],['2020-06-08',42],['2020-06-15',38],
+  ['2020-06-22',43],['2020-06-29',41],['2020-07-06',43],['2020-07-13',42],
+  ['2020-07-20',43],['2020-07-27',43],['2020-08-03',44],['2020-08-10',45],
+  ['2020-08-17',45],['2020-08-24',46],['2020-08-31',45],['2020-09-07',40],
+  ['2020-09-14',40],['2020-09-21',42],['2020-09-28',40],['2020-10-05',42],
+  ['2020-10-12',43],['2020-10-19',42],['2020-10-26',38],['2020-11-02',38],
+  ['2020-11-09',43],['2020-11-16',43],['2020-11-23',46],['2020-11-30',48],
+  ['2020-12-07',49],['2020-12-14',50],['2020-12-21',51],['2020-12-28',51],
+  ['2021-01-04',54],['2021-01-11',55],['2021-01-19',55],['2021-01-25',56],
+  ['2021-02-01',59],['2021-02-08',62],['2021-02-16',63],['2021-02-22',66],
+  ['2021-03-01',63],['2021-03-08',69],['2021-03-15',69],['2021-03-22',64],
+  ['2021-03-29',64],['2021-04-06',63],['2021-04-12',63],['2021-04-19',66],
+  ['2021-04-26',67],['2021-05-03',68],['2021-05-10',68],['2021-05-17',69],
+  ['2021-05-24',66],['2021-05-31',70],['2021-06-07',72],['2021-06-14',73],
+  ['2021-06-21',73],['2021-06-28',74],['2021-07-06',76],['2021-07-12',75],
+  ['2021-07-19',72],['2021-07-26',74],['2021-08-02',75],['2021-08-09',70],
+  ['2021-08-16',68],['2021-08-23',68],['2021-08-30',72],['2021-09-07',72],
+  ['2021-09-13',74],['2021-09-20',74],['2021-09-27',78],['2021-10-04',82],
+  ['2021-10-11',83],['2021-10-18',85],['2021-10-25',86],['2021-11-01',84],
+  ['2021-11-08',83],['2021-11-15',82],['2021-11-22',78],['2021-11-29',72],
+  ['2021-12-06',70],['2021-12-13',74],['2021-12-20',72],['2021-12-27',78],
+  ['2022-01-03',80],['2022-01-10',81],['2022-01-18',86],['2022-01-24',86],
+  ['2022-01-31',89],['2022-02-07',92],['2022-02-14',95],['2022-02-22',96],
+  ['2022-02-28',100],['2022-03-07',128],['2022-03-14',110],['2022-03-21',113],
+  ['2022-03-28',107],['2022-04-04',106],['2022-04-11',111],['2022-04-18',111],
+  ['2022-04-25',104],['2022-05-02',109],['2022-05-09',112],['2022-05-16',112],
+  ['2022-05-23',115],['2022-05-31',122],['2022-06-06',120],['2022-06-13',119],
+  ['2022-06-20',113],['2022-06-27',110],['2022-07-05',104],['2022-07-11',105],
+  ['2022-07-18',103],['2022-07-25',100],['2022-08-01',100],['2022-08-08',96],
+  ['2022-08-15',98],['2022-08-22',96],['2022-08-29',100],['2022-09-06',92],
+  ['2022-09-12',92],['2022-09-19',91],['2022-09-26',86],['2022-10-03',88],
+  ['2022-10-10',94],['2022-10-17',92],['2022-10-24',95],['2022-10-31',95],
+  ['2022-11-07',98],['2022-11-14',93],['2022-11-21',85],['2022-11-28',82],
+  ['2022-12-05',82],['2022-12-12',76],['2022-12-19',79],['2022-12-26',84],
+  ['2023-01-02',86],['2023-01-09',79],['2023-01-16',84],['2023-01-23',87],
+  ['2023-01-30',85],['2023-02-06',80],['2023-02-13',85],['2023-02-21',83],
+  ['2023-02-27',83],['2023-03-06',85],['2023-03-13',78],['2023-03-20',75],
+  ['2023-03-27',78],['2023-04-03',84],['2023-04-10',87],['2023-04-17',85],
+  ['2023-04-24',81],['2023-05-01',79],['2023-05-08',76],['2023-05-15',75],
+  ['2023-05-22',76],['2023-05-29',74],['2023-06-05',76],['2023-06-12',72],
+  ['2023-06-19',76],['2023-06-26',74],['2023-07-03',75],['2023-07-10',79],
+  ['2023-07-17',79],['2023-07-24',82],['2023-07-31',85],['2023-08-07',86],
+  ['2023-08-14',86],['2023-08-21',84],['2023-08-28',85],['2023-09-05',90],
+  ['2023-09-11',92],['2023-09-18',94],['2023-09-25',95],['2023-10-02',92],
+  ['2023-10-09',88],['2023-10-16',90],['2023-10-23',89],['2023-10-30',87],
+  ['2023-11-06',85],['2023-11-13',82],['2023-11-20',80],['2023-11-27',80],
+  ['2023-12-04',78],['2023-12-11',76],['2023-12-18',78],['2023-12-25',77],
+  ['2024-01-02',77],['2024-01-08',78],['2024-01-15',78],['2024-01-22',81],
+  ['2024-01-29',82],['2024-02-05',78],['2024-02-12',82],['2024-02-20',83],
+  ['2024-02-26',83],['2024-03-04',82],['2024-03-11',82],['2024-03-18',85],
+  ['2024-03-25',86],['2024-04-01',88],['2024-04-08',90],['2024-04-15',90],
+  ['2024-04-22',87],['2024-04-29',88],['2024-05-06',83],['2024-05-13',83],
+  ['2024-05-20',82],['2024-05-28',82],['2024-06-03',81],['2024-06-10',82],
+  ['2024-06-17',82],['2024-06-24',85],['2024-07-01',86],['2024-07-08',85],
+  ['2024-07-15',85],['2024-07-22',82],['2024-07-29',80],['2024-08-05',77],
+  ['2024-08-12',80],['2024-08-19',79],['2024-08-26',79],['2024-09-02',77],
+  ['2024-09-09',71],['2024-09-16',72],['2024-09-23',74],['2024-09-30',72],
+  ['2024-10-07',78],['2024-10-14',74],['2024-10-21',73],['2024-10-28',72],
+  ['2024-11-04',74],['2024-11-11',72],['2024-11-18',73],['2024-11-25',72],
+  ['2024-12-02',71],['2024-12-09',73],['2024-12-16',72],['2024-12-23',72],
+  ['2024-12-30',74],['2025-01-06',76],['2025-01-13',80],['2025-01-21',78],
+  ['2025-01-27',77],['2025-02-03',75],['2025-02-10',75],['2025-02-18',76],
+  ['2025-02-24',73],['2025-03-03',72],['2025-03-10',69],['2025-03-17',71],
+  ['2025-03-24',72],['2025-03-31',74],['2025-04-07',64],['2025-04-14',64],
+  ['2025-04-22',67],['2025-04-28',66],['2025-05-05',62],['2025-05-12',65],
+  ['2025-05-19',65],
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let btcData = [];
+let allDates = [];
+let seriesVisible = { btc:true, sp:true, crude:true };
+let showNews = true;
+let activeRange = '5Y';
+let hoverIdx = -1;
+let chartWidth = 0, chartHeight = 0;
+
+const PAD = { top:24, right:20, bottom:40, left:0 };
+
+// ═══════════════════════════════════════════════
+// FETCH BTC
+// ═══════════════════════════════════════════════
+async function fetchBTC() {
+  document.getElementById('status').textContent = 'FETCHING BITCOIN DATA...';
+  try {
+    const days = 1825; // 5 years
+    const url = `https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=${days}&interval=weekly`;
+    const res = await fetch(url);
+    const json = await res.json();
+    btcData = json.prices.map(([ts, price]) => ({
+      date: new Date(ts).toISOString().split('T')[0],
+      price: Math.round(price)
+    }));
+    document.getElementById('status').style.display = 'none';
+    updateLivePrice();
+    buildDateAxis();
+    render();
+  } catch(e) {
+    document.getElementById('status').textContent = 'USING CACHED DATA';
+    // Fallback hardcoded BTC
+    btcData = [
+      {date:'2020-01-06',price:7200},{date:'2020-01-20',price:8700},{date:'2020-02-03',price:9400},
+      {date:'2020-02-17',price:9900},{date:'2020-03-09',price:7900},{date:'2020-03-23',price:5900},
+      {date:'2020-04-06',price:7300},{date:'2020-05-04',price:8800},{date:'2020-06-01',price:9700},
+      {date:'2020-07-06',price:9100},{date:'2020-08-03',price:11300},{date:'2020-09-07',price:10300},
+      {date:'2020-10-05',price:10700},{date:'2020-11-09',price:15500},{date:'2020-11-30',price:19700},
+      {date:'2020-12-14',price:19200},{date:'2020-12-28',price:27100},
+      {date:'2021-01-04',price:29300},{date:'2021-01-11',price:35500},{date:'2021-01-25',price:32500},
+      {date:'2021-02-08',price:46500},{date:'2021-02-22',price:54200},{date:'2021-03-08',price:52000},
+      {date:'2021-04-14',price:63000},{date:'2021-05-12',price:50000},{date:'2021-05-19',price:36800},
+      {date:'2021-06-21',price:32500},{date:'2021-07-26',price:38000},{date:'2021-08-23',price:49300},
+      {date:'2021-09-07',price:52700},{date:'2021-09-20',price:43000},{date:'2021-10-20',price:65000},
+      {date:'2021-11-10',price:68000},{date:'2021-11-29',price:57000},{date:'2021-12-14',price:48000},
+      {date:'2021-12-28',price:51000},
+      {date:'2022-01-10',price:42000},{date:'2022-01-24',price:36000},{date:'2022-02-24',price:38000},
+      {date:'2022-03-28',price:47500},{date:'2022-04-25',price:40000},{date:'2022-05-12',price:29000},
+      {date:'2022-06-13',price:22600},{date:'2022-06-20',price:20600},{date:'2022-07-18',price:22400},
+      {date:'2022-08-15',price:24400},{date:'2022-09-26',price:19000},{date:'2022-10-17',price:19500},
+      {date:'2022-11-08',price:20300},{date:'2022-11-14',price:16600},{date:'2022-12-14',price:17800},
+      {date:'2022-12-28',price:16500},
+      {date:'2023-01-09',price:17200},{date:'2023-01-16',price:21200},{date:'2023-02-06',price:23400},
+      {date:'2023-02-21',price:24800},{date:'2023-03-13',price:22400},{date:'2023-03-27',price:28400},
+      {date:'2023-04-10',price:29500},{date:'2023-05-01',price:29200},{date:'2023-05-15',price:27200},
+      {date:'2023-06-05',price:27100},{date:'2023-06-26',price:30700},{date:'2023-07-31',price:29300},
+      {date:'2023-08-14',price:29400},{date:'2023-09-11',price:26000},{date:'2023-10-09',price:27500},
+      {date:'2023-10-23',price:34500},{date:'2023-11-06',price:35000},{date:'2023-11-16',price:37900},
+      {date:'2023-12-04',price:43900},{date:'2023-12-13',price:42800},{date:'2023-12-25',price:43600},
+      {date:'2024-01-10',price:46500},{date:'2024-01-22',price:39600},{date:'2024-02-05',price:43500},
+      {date:'2024-02-20',price:52000},{date:'2024-03-04',price:63800},{date:'2024-03-11',price:72500},
+      {date:'2024-03-25',price:70000},{date:'2024-04-19',price:61000},{date:'2024-05-06',price:65500},
+      {date:'2024-06-10',price:69000},{date:'2024-07-01',price:63000},{date:'2024-07-15',price:66500},
+      {date:'2024-08-05',price:55000},{date:'2024-08-26',price:64000},{date:'2024-09-16',price:58000},
+      {date:'2024-09-30',price:63400},{date:'2024-10-21',price:67500},{date:'2024-11-05',price:70000},
+      {date:'2024-11-11',price:87400},{date:'2024-12-04',price:98600},{date:'2024-12-16',price:106000},
+      {date:'2024-12-28',price:95000},{date:'2025-01-20',price:105000},{date:'2025-01-27',price:101000},
+      {date:'2025-02-03',price:97000},{date:'2025-02-24',price:87000},{date:'2025-03-10',price:79000},
+      {date:'2025-03-31',price:82000},{date:'2025-04-07',price:76000},{date:'2025-04-14',price:85000},
+      {date:'2025-04-28',price:94000},{date:'2025-05-12',price:103000},{date:'2025-05-19',price:106000},
+    ];
+    setTimeout(()=>{ document.getElementById('status').style.display='none'; },2000);
+    buildDateAxis();
+    render();
+  }
+}
+
+function updateLivePrice() {
+  if (!btcData.length) return;
+  const last = btcData[btcData.length-1];
+  const prev = btcData[btcData.length-2];
+  const el = document.getElementById('btc-live');
+  const ch = document.getElementById('btc-change');
+  const lu = document.getElementById('last-updated');
+  el.textContent = '$' + last.price.toLocaleString();
+  const pct = ((last.price - prev.price)/prev.price*100).toFixed(2);
+  ch.textContent = (pct>0?'+':'')+pct+'%';
+  ch.className = pct>=0?'pos':'neg';
+  lu.textContent = 'UPDATED ' + last.date;
+}
+
+// ═══════════════════════════════════════════════
+// BUILD UNIFIED DATE AXIS
+// ═══════════════════════════════════════════════
+function buildDateAxis() {
+  const spDates = new Set(SP500_DATA.map(d=>d[0]));
+  const crudeDates = new Set(CRUDE_DATA.map(d=>d[0]));
+  const btcDates = new Set(btcData.map(d=>d.date));
+  const all = new Set([...spDates, ...crudeDates, ...btcDates]);
+  allDates = [...all].sort();
+}
+
+function getFilteredDates() {
+  if (!allDates.length) return [];
+  const last = new Date(allDates[allDates.length-1]);
+  let start;
+  if (activeRange==='1Y') start = new Date(last); start && (start.setFullYear(start.getFullYear()-(activeRange==='1Y'?1:activeRange==='2Y'?2:5)));
+  const s = new Date(last);
+  s.setFullYear(s.getFullYear() - (activeRange==='5Y'?5:activeRange==='2Y'?2:1));
+  return allDates.filter(d => new Date(d) >= s);
+}
+
+function lookupVal(data, date, keyField) {
+  // find closest date
+  let closest = null, minDiff = Infinity;
+  for (const row of data) {
+    const d = Array.isArray(row) ? row[0] : row.date;
+    const v = Array.isArray(row) ? row[1] : row.price;
+    const diff = Math.abs(new Date(d) - new Date(date));
+    if (diff < minDiff) { minDiff = diff; closest = v; }
+  }
+  return closest;
+}
+
+// ═══════════════════════════════════════════════
+// CHART RENDER
+// ═══════════════════════════════════════════════
+const POINT_SPACING = 8;
+
+function render() {
+  const dates = getFilteredDates();
+  if (!dates.length) return;
+
+  const wrap = document.getElementById('chart-wrap');
+  const scrollEl = document.getElementById('chart-scroll');
+  const H = wrap.clientHeight;
+  chartHeight = H;
+  chartWidth = Math.max(dates.length * POINT_SPACING, scrollEl.clientWidth - 62);
+
+  // set canvas sizes
+  const mc = document.getElementById('main-chart');
+  const oc = document.getElementById('overlay-canvas');
+  mc.width = chartWidth; mc.height = H;
+  oc.width = chartWidth; oc.height = H;
+  document.getElementById('chart-inner').style.width = chartWidth + 'px';
+  document.getElementById('chart-inner').style.height = H + 'px';
+
+  const yc = document.getElementById('y-axis-canvas');
+  yc.width = 62; yc.height = H;
+
+  // gather values
+  const btcVals = dates.map(d => lookupVal(btcData, d, 'date'));
+  const spVals  = dates.map(d => lookupVal(SP500_DATA, d, null));
+  const crVals  = dates.map(d => lookupVal(CRUDE_DATA, d, null));
+
+  // normalize to % of first value in range for multi-axis display
+  const b0 = btcVals[0]||1, s0 = spVals[0]||1, c0 = crVals[0]||1;
+  const btcN = btcVals.map(v=>v!=null?(v/b0)*100:null);
+  const spN  = spVals.map(v=>v!=null?(v/s0)*100:null);
+  const crN  = crVals.map(v=>v!=null?(v/c0)*100:null);
+
+  const allNorm = [...btcN,...spN,...crN].filter(v=>v!=null);
+  const minN = Math.min(...allNorm)*0.97;
+  const maxN = Math.max(...allNorm)*1.03;
+
+  function toX(i) { return PAD.left + i*POINT_SPACING; }
+  function toY(v) {
+    if (v==null) return null;
+    return PAD.top + (1-(v-minN)/(maxN-minN))*(H-PAD.top-PAD.bottom);
+  }
+
+  const mctx = mc.getContext('2d');
+  mctx.clearRect(0,0,chartWidth,H);
+
+  // Background
+  mctx.fillStyle = '#0a0a0a';
+  mctx.fillRect(0,0,chartWidth,H);
+
+  // Grid lines
+  const gridCount = 6;
+  mctx.strokeStyle = '#1a1a1a';
+  mctx.lineWidth = 1;
+  for (let i=0; i<=gridCount; i++) {
+    const y = PAD.top + i*(H-PAD.top-PAD.bottom)/gridCount;
+    mctx.beginPath(); mctx.moveTo(0,y); mctx.lineTo(chartWidth,y); mctx.stroke();
+  }
+
+  // Date labels on x axis
+  mctx.font = '10px IBM Plex Mono';
+  mctx.fillStyle = '#333';
+  mctx.textAlign = 'center';
+  const labelEvery = Math.ceil(dates.length / (chartWidth/80));
+  let lastYear = '';
+  dates.forEach((d,i) => {
+    if (i%labelEvery===0) {
+      const yr = d.slice(0,4), mo = d.slice(5,7);
+      const label = yr!==lastYear ? d.slice(0,7) : mo;
+      mctx.fillStyle = yr!==lastYear ? '#555' : '#2a2a2a';
+      mctx.fillText(label, toX(i), H-PAD.bottom+16);
+      // tick
+      mctx.strokeStyle = '#222';
+      mctx.beginPath(); mctx.moveTo(toX(i),H-PAD.bottom); mctx.lineTo(toX(i),H-PAD.bottom+6); mctx.stroke();
+      lastYear = yr;
+    }
+  });
+
+  // Draw series
+  function drawLine(vals, color, lineWidth) {
+    mctx.beginPath(); mctx.strokeStyle = color; mctx.lineWidth = lineWidth;
+    mctx.shadowBlur = 0;
+    let started = false;
+    vals.forEach((v,i) => {
+      const y = toY(v);
+      if (y==null) return;
+      if (!started) { mctx.moveTo(toX(i),y); started=true; }
+      else mctx.lineTo(toX(i),y);
+    });
+    mctx.stroke();
+  }
+
+  if (seriesVisible.crude) drawLine(crN, 'rgba(224,160,48,0.7)', 1.5);
+  if (seriesVisible.sp)    drawLine(spN, 'rgba(74,158,255,0.8)', 1.5);
+  if (seriesVisible.btc)   drawLine(btcN,'rgba(245,130,10,1)', 2);
+
+  // News event pins
+  if (showNews) {
+    const filteredDates = new Set(dates);
+    NEWS_EVENTS.forEach(ev => {
+      if (!filteredDates.has(ev.date)) {
+        // find closest
+        let closest = dates[0], minD = Infinity;
+        dates.forEach(d => {
+          const diff = Math.abs(new Date(d)-new Date(ev.date));
+          if (diff < minD) { minD = diff; closest = d; }
+        });
+        if (minD > 1000*60*60*24*10) return; // skip if >10 days off
+        ev._mappedDate = closest;
+      } else {
+        ev._mappedDate = ev.date;
+      }
+      const i = dates.indexOf(ev._mappedDate);
+      if (i<0) return;
+      const x = toX(i);
+      // vertical dotted line
+      mctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      mctx.lineWidth = 1;
+      mctx.setLineDash([3,4]);
+      mctx.beginPath(); mctx.moveTo(x,PAD.top); mctx.lineTo(x,H-PAD.bottom); mctx.stroke();
+      mctx.setLineDash([]);
+      // diamond pin
+      mctx.fillStyle = '#ffffff';
+      mctx.strokeStyle = '#0a0a0a';
+      mctx.lineWidth = 1;
+      mctx.beginPath();
+      mctx.moveTo(x, PAD.top+4);
+      mctx.lineTo(x+4, PAD.top+9);
+      mctx.lineTo(x, PAD.top+14);
+      mctx.lineTo(x-4, PAD.top+9);
+      mctx.closePath();
+      mctx.fill();
+      mctx.stroke();
+    });
+  }
+
+  // Y-axis
+  drawYAxis(minN, maxN, H, b0, s0, c0, gridCount);
+
+  // store for hover
+  mc._dates = dates; mc._btcN = btcN; mc._spN = spN; mc._crN = crN;
+  mc._btcVals = btcVals; mc._spVals = spVals; mc._crVals = crVals;
+  mc._toX = toX; mc._toY = toY;
+}
+
+function drawYAxis(minN, maxN, H, b0, s0, c0, gridCount) {
+  const yc = document.getElementById('y-axis-canvas');
+  const yctx = yc.getContext('2d');
+  yctx.clearRect(0,0,62,H);
+  yctx.fillStyle = '#0a0a0a';
+  yctx.fillRect(0,0,62,H);
+  yctx.font = '9px IBM Plex Mono';
+  yctx.fillStyle = '#444';
+  yctx.textAlign = 'right';
+  for (let i=0; i<=gridCount; i++) {
+    const frac = 1 - i/gridCount;
+    const val = minN + frac*(maxN-minN);
+    const y = PAD.top + i*(H-PAD.top-PAD.bottom)/gridCount;
+    yctx.fillText((val-100).toFixed(0)+'%', 56, y+4);
+  }
+  // baseline label
+  yctx.fillStyle = '#333';
+  yctx.font = '8px IBM Plex Mono';
+  yctx.fillText('BASE', 56, H-PAD.bottom+14);
+  // axis border
+  yctx.strokeStyle = '#1e1e1e';
+  yctx.lineWidth = 1;
+  yctx.beginPath(); yctx.moveTo(61,0); yctx.lineTo(61,H); yctx.stroke();
+}
+
+// ═══════════════════════════════════════════════
+// HOVER / TOOLTIP
+// ═══════════════════════════════════════════════
+function handleMouseMove(e) {
+  const mc = document.getElementById('main-chart');
+  if (!mc._dates) return;
+  const scrollEl = document.getElementById('chart-scroll');
+  const rect = scrollEl.getBoundingClientRect();
+  const xInScroll = e.clientX - rect.left + scrollEl.scrollLeft;
+  const idx = Math.round((xInScroll - PAD.left) / POINT_SPACING);
+  if (idx<0 || idx>=mc._dates.length) { hideTooltip(); return; }
+
+  hoverIdx = idx;
+  const x = mc._toX(idx);
+  const tt = document.getElementById('tooltip');
+  const ch = document.getElementById('crosshair-v');
+  ch.style.display = 'block';
+  ch.style.left = (x - scrollEl.scrollLeft) + 'px';
+
+  // values
+  const date = mc._dates[idx];
+  const btcV = mc._btcVals[idx];
+  const spV  = mc._spVals[idx];
+  const crV  = mc._crVals[idx];
+
+  document.getElementById('tt-date').textContent = date;
+  document.getElementById('tt-btc').textContent  = btcV  ? '$'+btcV.toLocaleString()  : '—';
+  document.getElementById('tt-sp').textContent   = spV   ? spV.toLocaleString()        : '—';
+  document.getElementById('tt-crude').textContent= crV   ? '$'+crV.toFixed(1)+'/bbl'   : '—';
+
+  // news
+  const newsEl = document.getElementById('tt-news');
+  const nearby = NEWS_EVENTS.find(ev => ev._mappedDate === date);
+  if (nearby && showNews) {
+    newsEl.style.display = 'block';
+    document.getElementById('tt-news-text').textContent = nearby.text;
+    document.getElementById('tt-news-src').textContent  = '— ' + nearby.src.toUpperCase();
+  } else {
+    newsEl.style.display = 'none';
+  }
+
+  // position tooltip
+  tt.style.display = 'block';
+  let tx = e.clientX + 16, ty = e.clientY - 20;
+  if (tx + 310 > window.innerWidth) tx = e.clientX - 320;
+  if (ty + 200 > window.innerHeight) ty = window.innerHeight - 220;
+  tt.style.left = tx+'px'; tt.style.top = ty+'px';
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+  document.getElementById('crosshair-v').style.display = 'none';
+  hoverIdx = -1;
+}
+
+document.getElementById('chart-scroll').addEventListener('mousemove', handleMouseMove);
+document.getElementById('chart-scroll').addEventListener('mouseleave', hideTooltip);
+
+// ═══════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    activeRange = btn.dataset.range;
+    render();
+    // scroll to end
+    setTimeout(() => {
+      const s = document.getElementById('chart-scroll');
+      s.scrollLeft = s.scrollWidth;
+    }, 50);
+  });
+});
+
+document.querySelectorAll('.legend-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const s = item.dataset.series;
+    seriesVisible[s] = !seriesVisible[s];
+    item.classList.toggle('hidden', !seriesVisible[s]);
+    render();
+  });
+});
+
+document.getElementById('news-toggle').addEventListener('click', () => {
+  showNews = !showNews;
+  document.getElementById('news-toggle').classList.toggle('active', showNews);
+  render();
+});
+
+window.addEventListener('resize', () => { render(); });
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+fetchBTC().then(() => {
+  setTimeout(() => {
+    const s = document.getElementById('chart-scroll');
+    s.scrollLeft = s.scrollWidth;
+  }, 100);
+});
+</script>
+</body>
+</html>
