@@ -2,816 +2,587 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>TIB — Crypto Trading Simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>SPACE DIVE</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-* { margin:0; padding:0; box-sizing:border-box; image-rendering:pixelated; }
-:root {
-  --bg:    #000000;
-  --fg:    #ffffff;
-  --dim:   #666666;
-  --dim2:  #333333;
-  --green: #ffffff;
-  --red:   #000000;
-  --border:#ffffff;
-  --px:    2px;
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#050a14;
+  --surface:#0a1628;
+  --border:#1a3a5c;
+  --fg:#e8f4ff;
+  --dim:#4a7a9b;
+  --dim2:#1a3050;
+  --accent:#00aaff;
+  --gold:#ffd700;
+  --green:#00ff88;
+  --red:#ff4455;
+  --warp:#aa44ff;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
 }
-html,body {
-  width:100%; height:100%;
-  background:var(--bg); color:var(--fg);
-  font-family:'Press Start 2P', monospace;
-  overflow:hidden;
-  font-size:8px;
-}
-
-/* ── SCANLINES overlay ── */
-body::after {
-  content:'';
-  position:fixed; inset:0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.08) 2px,
-    rgba(0,0,0,0.08) 4px
-  );
-  pointer-events:none; z-index:9999;
-}
-
-/* ── HEADER ── */
-#header {
-  position:fixed; top:0; left:0; right:0; height:40px;
-  border-bottom:2px solid var(--border);
-  display:flex; align-items:center;
-  padding:0 16px; z-index:100;
+html{
+  width:100%;height:100%;
   background:var(--bg);
-  justify-content:space-between;
+  -webkit-text-size-adjust:100%;
 }
-#logo-tib { font-size:14px; letter-spacing:4px; color:var(--fg); }
-#logo-sub  { font-size:6px; color:var(--dim); letter-spacing:2px; margin-top:3px; }
-#header-center { text-align:center; }
-#wallet-label { font-size:6px; color:var(--dim); margin-bottom:3px; }
-#wallet-val    { font-size:11px; letter-spacing:1px; }
-#header-right  { text-align:right; }
-#pnl-label { font-size:6px; color:var(--dim); margin-bottom:3px; }
-#pnl-val   { font-size:11px; letter-spacing:1px; }
-
-/* ── TABS ── */
-#tabs {
-  position:fixed; top:40px; left:0; right:0; height:30px;
-  border-bottom:2px solid var(--border);
-  display:flex; background:var(--bg); z-index:99;
-}
-.tab {
-  flex:1; display:flex; align-items:center; justify-content:center;
-  font-size:6px; letter-spacing:1px; color:var(--dim);
-  border-right:1px solid var(--dim2);
-  cursor:pointer; transition:all 0.1s;
-}
-.tab:last-child { border-right:none; }
-.tab.active { color:var(--fg); background:var(--dim2); }
-.tab:hover:not(.active) { color:#aaa; }
-
-/* ── MAIN ── */
-#main {
-  position:fixed; top:70px; left:0; right:0; bottom:0;
+body{
+  width:100%;height:100%;
+  background:var(--bg);color:var(--fg);
+  font-family:'Press Start 2P',monospace;
   overflow:hidden;
-}
-.screen { display:none; width:100%; height:100%; }
-.screen.active { display:flex; flex-direction:column; }
-
-/* ── MARKET SCREEN ── */
-#market-screen { flex-direction:row !important; }
-
-/* coin list */
-#coin-list {
-  width:180px; flex-shrink:0;
-  border-right:2px solid var(--border);
-  overflow-y:auto; overflow-x:hidden;
-}
-#coin-list::-webkit-scrollbar { width:3px; }
-#coin-list::-webkit-scrollbar-thumb { background:var(--dim2); }
-.coin-item {
-  padding:10px 12px;
-  border-bottom:1px solid var(--dim2);
-  cursor:pointer; transition:background 0.1s;
-}
-.coin-item:hover, .coin-item.active { background:var(--dim2); }
-.coin-sym  { font-size:9px; margin-bottom:4px; }
-.coin-price { font-size:7px; color:var(--dim); margin-bottom:2px; }
-.coin-chg  { font-size:6px; }
-.coin-chg.up  { color:var(--fg); }
-.coin-chg.dn  { color:var(--dim); }
-
-/* chart panel */
-#chart-panel {
-  flex:1; display:flex; flex-direction:column; overflow:hidden;
-}
-#chart-header {
-  padding:10px 16px 8px;
-  border-bottom:1px solid var(--dim2);
-  display:flex; align-items:center; justify-content:space-between;
-}
-#chart-coin-name { font-size:10px; margin-bottom:3px; }
-#chart-coin-price { font-size:16px; letter-spacing:1px; }
-#chart-coin-chg   { font-size:7px; color:var(--dim); margin-top:3px; }
-#chart-canvas-wrap { flex:1; padding:8px 16px 4px; min-height:0; }
-#chart-canvas { width:100%; height:100%; display:block; }
-
-/* trade controls */
-#trade-controls {
-  border-top:2px solid var(--border);
-  padding:12px 16px;
-  display:grid; grid-template-columns:1fr 1fr;
-  gap:8px;
-}
-.trade-col { display:flex; flex-direction:column; gap:6px; }
-.trade-label { font-size:6px; color:var(--dim); letter-spacing:1px; }
-#stake-input {
-  background:var(--dim2); border:1px solid var(--dim);
-  color:var(--fg); font-family:'Press Start 2P', monospace;
-  font-size:9px; padding:6px 8px; width:100%; outline:none;
-}
-#stake-input:focus { border-color:var(--fg); }
-.stake-presets { display:flex; gap:4px; }
-.preset-btn {
-  flex:1; font-family:'Press Start 2P', monospace;
-  font-size:6px; padding:4px 2px;
-  background:var(--dim2); border:1px solid var(--dim);
-  color:var(--dim); cursor:pointer;
-}
-.preset-btn:hover { border-color:var(--fg); color:var(--fg); }
-.dir-btns { display:flex; gap:6px; }
-#btn-up, #btn-dn {
-  flex:1; font-family:'Press Start 2P', monospace;
-  font-size:8px; padding:8px 4px;
-  border:2px solid; cursor:pointer; letter-spacing:1px;
-  transition:all 0.1s;
-}
-#btn-up {
-  background:var(--fg); color:var(--bg);
-  border-color:var(--fg);
-}
-#btn-up:hover { background:var(--dim); border-color:var(--dim); color:var(--bg); }
-#btn-dn {
-  background:var(--bg); color:var(--fg);
-  border-color:var(--fg);
-}
-#btn-dn:hover { background:var(--dim2); }
-
-/* ── TRADES SCREEN ── */
-#trades-screen { overflow-y:auto; padding:16px; gap:8px; }
-.trade-card {
-  border:1px solid var(--dim2);
-  padding:10px 12px;
-  display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto;
-  align-items:center; gap:8px;
-}
-.tc-sym  { font-size:8px; }
-.tc-dir  { font-size:7px; }
-.tc-dir.up-dir { color:var(--fg); }
-.tc-dir.dn-dir { color:var(--dim); }
-.tc-stake { font-size:7px; color:var(--dim); }
-.tc-pnl   { font-size:8px; }
-.tc-pnl.pos { color:var(--fg); }
-.tc-pnl.neg { color:var(--dim); }
-.close-btn {
-  font-family:'Press Start 2P', monospace; font-size:6px;
-  background:var(--bg); border:1px solid var(--fg);
-  color:var(--fg); padding:4px 6px; cursor:pointer;
-}
-.close-btn:hover { background:var(--fg); color:var(--bg); }
-#no-trades { color:var(--dim); font-size:7px; text-align:center; margin-top:40px; line-height:2; }
-
-/* ── HISTORY SCREEN ── */
-#history-screen { overflow-y:auto; padding:16px; gap:6px; }
-.hist-row {
-  border-bottom:1px solid var(--dim2);
-  padding:8px 0;
-  display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr;
-  gap:8px; align-items:center;
-}
-.hist-row:first-child { border-top:1px solid var(--dim2); }
-.hr-sym   { font-size:7px; }
-.hr-dir   { font-size:6px; color:var(--dim); }
-.hr-stake { font-size:6px; color:var(--dim); }
-.hr-pnl   { font-size:8px; }
-.hr-pnl.pos { color:var(--fg); }
-.hr-pnl.neg { color:var(--dim); }
-.hr-date  { font-size:6px; color:var(--dim); text-align:right; }
-#no-history { color:var(--dim); font-size:7px; text-align:center; margin-top:40px; line-height:2; }
-
-/* ── STATS SCREEN ── */
-#stats-screen { overflow-y:auto; padding:16px; }
-.stats-title { font-size:8px; color:var(--dim); margin-bottom:12px; letter-spacing:2px; border-bottom:1px solid var(--dim2); padding-bottom:8px; }
-.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--dim2); border:1px solid var(--dim2); margin-bottom:16px; }
-.stat-box { background:var(--bg); padding:12px; }
-.stat-box-label { font-size:6px; color:var(--dim); margin-bottom:6px; letter-spacing:1px; }
-.stat-box-val   { font-size:12px; }
-.stat-box-val.pos { color:var(--fg); }
-.stat-box-val.neg { color:var(--dim); }
-#reset-btn {
-  font-family:'Press Start 2P', monospace; font-size:7px;
-  background:var(--bg); border:1px solid var(--dim);
-  color:var(--dim); padding:10px 16px; cursor:pointer;
-  letter-spacing:1px;
-}
-#reset-btn:hover { border-color:var(--fg); color:var(--fg); }
-
-/* ── TOAST ── */
-#toast {
-  position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
-  background:var(--fg); color:var(--bg);
-  font-family:'Press Start 2P', monospace; font-size:7px;
-  padding:8px 16px; z-index:1000; display:none;
-  white-space:nowrap; border:2px solid var(--bg);
-  letter-spacing:1px;
+  padding-top:var(--safe-top);
+  padding-bottom:var(--safe-bot);
+  touch-action:manipulation;
 }
 
-/* ── OPEN TRADES INLINE PANEL ── */
-#open-trades-panel {
-  border-top:1px solid var(--dim2);
-  display:none;
-  flex-direction:column;
-  max-height:120px;
-  overflow-y:auto;
-}
-#open-trades-panel.visible { display:flex; }
-#open-trades-title {
-  font-size:6px; color:var(--dim); letter-spacing:2px;
-  padding:6px 16px 4px;
-  border-bottom:1px solid var(--dim2);
-  flex-shrink:0;
-}
-.inline-trade {
-  display:grid;
-  grid-template-columns:auto 1fr 1fr 1fr auto;
-  align-items:center; gap:10px;
-  padding:7px 16px;
-  border-bottom:1px solid var(--dim2);
-  flex-shrink:0;
-}
-.it-dir  { font-size:7px; }
-.it-dir.up-dir { color:var(--fg); }
-.it-dir.dn-dir { color:var(--dim); }
-.it-stake { font-size:7px; color:var(--dim); }
-.it-entry { font-size:6px; color:var(--dim); }
-.it-pnl   { font-size:8px; text-align:right; }
-.it-pnl.pos { color:var(--fg); }
-.it-pnl.neg { color:var(--dim); }
-.it-close {
-  font-family:'Press Start 2P', monospace; font-size:6px;
-  background:var(--bg); border:1px solid var(--fg);
-  color:var(--fg); padding:4px 8px; cursor:pointer;
-  white-space:nowrap;
-}
-.it-close:hover { background:var(--fg); color:var(--bg); }
+/* SCANLINES */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,10,30,0.12) 3px,rgba(0,10,30,0.12) 4px);pointer-events:none;z-index:9999;}
 
-/* pixel blink cursor on chart */
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+/* STARS */
+#stars{position:fixed;inset:0;z-index:0;overflow:hidden;}
+.star{position:absolute;background:#fff;border-radius:50%;}
+
+/* SCREENS */
+#app{position:fixed;inset:0;padding-top:var(--safe-top);padding-bottom:var(--safe-bot);z-index:10;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.screen{display:none;width:100%;height:100%;align-items:center;justify-content:center;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.screen.active{display:flex;}
+
+/* ── INTRO ── */
+#intro-screen{gap:0;padding:24px 20px;}
+.pixel-ship{font-size:52px;display:block;text-align:center;animation:hover-ship 2s ease-in-out infinite;line-height:1;}
+@keyframes hover-ship{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+#game-title{font-size:clamp(20px,6vw,32px);letter-spacing:6px;color:var(--accent);text-shadow:0 0 20px rgba(0,170,255,0.5);margin:20px 0 6px;text-align:center;}
+#game-sub{font-size:7px;color:var(--dim);letter-spacing:3px;margin-bottom:28px;text-align:center;}
+#intro-desc{font-size:7px;color:var(--dim);line-height:2.6;text-align:center;max-width:300px;margin-bottom:32px;}
+#intro-desc span{color:var(--accent);}
+#start-btn{
+  font-family:'Press Start 2P',monospace;font-size:11px;
+  background:var(--accent);color:#000;border:none;
+  padding:16px 36px;cursor:pointer;letter-spacing:2px;
+  -webkit-appearance:none;border-radius:0;
+  animation:pulse-btn 2s infinite;
+  min-height:52px;
+}
+@keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(0,170,255,0.4);}50%{box-shadow:0 0 0 14px rgba(0,170,255,0);}}
+#start-btn:active{background:#fff;transform:scale(0.97);}
+#hi-score-display{font-size:7px;color:var(--dim);margin-top:18px;letter-spacing:2px;}
+
+/* ── GAME ── */
+#game-screen{justify-content:flex-start;padding:0;}
+#game-inner{
+  width:100%;max-width:600px;margin:0 auto;
+  height:100%;display:flex;flex-direction:column;
+  padding:14px 16px;gap:10px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+
+/* depth meter */
+#depth-bar-wrap{flex-shrink:0;}
+#depth-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+#depth-label{font-size:6px;color:var(--dim);letter-spacing:2px;}
+#depth-num{font-size:10px;color:var(--accent);}
+#depth-track{width:100%;height:7px;background:var(--dim2);border:1px solid var(--border);}
+#depth-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--warp));transition:width 0.8s cubic-bezier(0.16,1,0.3,1);width:0%;}
+#round-pip-row{display:flex;gap:5px;margin-top:5px;}
+.round-pip{width:10px;height:10px;border:1px solid var(--border);background:var(--dim2);}
+.round-pip.done{background:var(--accent);}
+.round-pip.current{background:var(--gold);border-color:var(--gold);}
+
+/* prompt card */
+#prompt-card{background:var(--surface);border:1px solid var(--border);padding:16px;position:relative;overflow:hidden;flex-shrink:0;}
+#prompt-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
+#round-tag{font-size:6px;color:var(--dim);letter-spacing:2px;margin-bottom:8px;}
+#prompt-text{font-size:clamp(9px,2.5vw,12px);color:var(--fg);line-height:2;letter-spacing:0.5px;}
+
+/* answer */
+#answer-area{flex-shrink:0;display:flex;flex-direction:column;gap:7px;}
+#answer-label{font-size:6px;color:var(--dim);letter-spacing:2px;}
+#answer-row{display:flex;gap:6px;}
+#answer-input{
+  flex:1;background:var(--dim2);border:1px solid var(--border);
+  color:var(--fg);font-family:'Press Start 2P',monospace;
+  font-size:11px;padding:14px 12px;outline:none;
+  -webkit-appearance:none;border-radius:0;
+  transition:border-color 0.15s;
+  min-height:50px;
+}
+#answer-input:focus{border-color:var(--accent);}
+#answer-input:disabled{opacity:0.5;}
+#submit-btn{
+  font-family:'Press Start 2P',monospace;font-size:9px;
+  background:var(--accent);color:#000;border:none;
+  padding:0 16px;cursor:pointer;letter-spacing:1px;
+  -webkit-appearance:none;border-radius:0;
+  white-space:nowrap;min-height:50px;min-width:80px;
+}
+#submit-btn:active{background:#fff;}
+#submit-btn:disabled{background:var(--dim2);color:var(--dim);cursor:not-allowed;}
+
+/* loading */
+#loading-indicator{font-size:6px;color:var(--dim);letter-spacing:2px;display:none;text-align:center;padding:6px;flex-shrink:0;}
+#loading-indicator.visible{display:block;}
+#loading-indicator::after{content:'SCANNING...';animation:ldot 1s steps(1) infinite;}
+@keyframes ldot{0%{content:'SCANNING.'}33%{content:'SCANNING..'}66%{content:'SCANNING...'}100%{content:'SCANNING.'}}
+
+/* result */
+#result-panel{display:none;background:var(--surface);border:1px solid var(--border);padding:14px;flex-shrink:0;}
+#result-panel.visible{display:block;}
+#result-rarity-label{font-size:6px;color:var(--dim);letter-spacing:2px;margin-bottom:6px;}
+#result-rarity-bar-wrap{height:5px;background:var(--dim2);border:1px solid var(--border);margin-bottom:8px;}
+#result-rarity-bar{height:100%;width:0%;transition:width 1s cubic-bezier(0.16,1,0.3,1);}
+#result-tier{font-size:10px;letter-spacing:2px;margin-bottom:4px;}
+#result-depth-gained{font-size:7px;color:var(--dim);margin-bottom:6px;}
+#result-reasoning{font-size:6px;color:var(--dim);line-height:2;border-top:1px solid var(--dim2);padding-top:7px;}
+
+/* warp */
+#warp-overlay{position:fixed;inset:0;z-index:500;display:none;background:var(--bg);align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+#warp-overlay.active{display:flex;}
+#warp-text{font-size:clamp(10px,3vw,14px);color:var(--warp);letter-spacing:4px;text-align:center;animation:warp-pulse 0.3s infinite;}
+@keyframes warp-pulse{0%,100%{opacity:1;text-shadow:0 0 20px var(--warp);}50%{opacity:0.4;text-shadow:none;}}
+
+/* next */
+#next-btn{
+  font-family:'Press Start 2P',monospace;font-size:9px;
+  background:transparent;border:1px solid var(--accent);
+  color:var(--accent);padding:14px 24px;cursor:pointer;
+  letter-spacing:2px;display:none;width:100%;
+  -webkit-appearance:none;border-radius:0;
+  min-height:50px;flex-shrink:0;
+}
+#next-btn.visible{display:block;}
+#next-btn:active{background:var(--accent);color:#000;}
+
+/* ── END ── */
+#end-screen{gap:12px;padding:24px 16px;justify-content:flex-start;padding-top:32px;}
+#end-ship{font-size:40px;text-align:center;}
+#end-title{font-size:clamp(11px,3vw,16px);letter-spacing:4px;color:var(--accent);text-align:center;}
+#end-depth{font-size:clamp(28px,8vw,52px);color:var(--gold);letter-spacing:2px;text-align:center;}
+#end-depth-label{font-size:6px;color:var(--dim);letter-spacing:2px;text-align:center;margin-top:-6px;}
+#end-tier-badge{font-size:8px;letter-spacing:2px;padding:8px 14px;border:1px solid;text-align:center;}
+#end-stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);width:100%;max-width:380px;}
+.end-stat{background:var(--surface);padding:10px;text-align:center;}
+.end-stat-label{font-size:5px;color:var(--dim);letter-spacing:1px;margin-bottom:5px;}
+.end-stat-val{font-size:10px;color:var(--fg);}
+#end-answers-wrap{width:100%;max-width:380px;}
+.end-answer-row{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--dim2);font-size:6px;}
+.ear-prompt{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ear-answer{color:var(--fg);}
+.ear-depth{color:var(--accent);white-space:nowrap;}
+#play-again-btn{
+  font-family:'Press Start 2P',monospace;font-size:9px;
+  background:var(--accent);color:#000;border:none;
+  padding:14px 28px;cursor:pointer;letter-spacing:2px;
+  -webkit-appearance:none;border-radius:0;
+  min-height:50px;width:100%;max-width:380px;
+}
+#play-again-btn:active{background:#fff;}
+#new-hi-score{font-size:7px;color:var(--gold);letter-spacing:2px;animation:blink-hs 0.5s infinite;display:none;text-align:center;}
+@keyframes blink-hs{0%,100%{opacity:1;}50%{opacity:0;}}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<div id="header">
-  <div>
-    <div id="logo-tib">TIB</div>
-    <div id="logo-sub">Trades in Bitcoin</div>
-  </div>
-  <div id="header-center">
-    <div id="wallet-label">BALANCE</div>
-    <div id="wallet-val">$10,000</div>
-  </div>
-  <div id="header-right">
-    <div id="pnl-label">TOTAL P&L</div>
-    <div id="pnl-val">+$0</div>
-  </div>
+<div id="stars"></div>
+
+<div id="warp-overlay">
+  <div id="warp-text">WARPING DEEPER</div>
 </div>
 
-<!-- TABS -->
-<div id="tabs">
-  <div class="tab active" data-screen="market">MARKET</div>
-  <div class="tab" data-screen="trades">TRADES</div>
-  <div class="tab" data-screen="history">HISTORY</div>
-  <div class="tab" data-screen="stats">STATS</div>
-</div>
+<div id="app">
 
-<!-- MAIN -->
-<div id="main">
+  <!-- INTRO -->
+  <div id="intro-screen" class="screen active">
+    <span class="pixel-ship">🚀</span>
+    <div id="game-title">SPACE DIVE</div>
+    <div id="game-sub">how deep can you go?</div>
+    <div id="intro-desc">
+      5 prompts. Type an answer.<br>
+      <span>The rarer your answer, the deeper you dive.</span><br>
+      Obvious answers barely move the needle.<br>
+      One in a million sends you to the void.
+    </div>
+    <button id="start-btn" onclick="startGame()">▶ LAUNCH</button>
+    <div id="hi-score-display">BEST: <span id="hi-score-val">0</span> km</div>
+  </div>
 
-  <!-- MARKET -->
-  <div id="market-screen" class="screen active">
-    <div id="coin-list"></div>
-    <div id="chart-panel">
-      <div id="chart-header">
-        <div>
-          <div id="chart-coin-name">BITCOIN</div>
-          <div id="chart-coin-price">$0.00</div>
-          <div id="chart-coin-chg">—</div>
+  <!-- GAME -->
+  <div id="game-screen" class="screen">
+    <div id="game-inner">
+      <div id="depth-bar-wrap">
+        <div id="depth-top">
+          <div id="depth-label">▼ DEPTH</div>
+          <div id="depth-num">0 km</div>
+        </div>
+        <div id="depth-track"><div id="depth-fill"></div></div>
+        <div id="round-pip-row"></div>
+      </div>
+      <div id="prompt-card">
+        <div id="round-tag">ROUND 1 OF 5</div>
+        <div id="prompt-text">Loading...</div>
+      </div>
+      <div id="answer-area">
+        <div id="answer-label">YOUR ANSWER</div>
+        <div id="answer-row">
+          <input id="answer-input" type="text" placeholder="type here..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <button id="submit-btn" onclick="submitAnswer()">FIRE ▶</button>
         </div>
       </div>
-      <div id="chart-canvas-wrap">
-        <canvas id="chart-canvas"></canvas>
+      <div id="loading-indicator"></div>
+      <div id="result-panel">
+        <div id="result-rarity-label">RARITY SCORE</div>
+        <div id="result-rarity-bar-wrap"><div id="result-rarity-bar"></div></div>
+        <div id="result-tier"></div>
+        <div id="result-depth-gained"></div>
+        <div id="result-reasoning"></div>
       </div>
-      <div id="open-trades-panel">
-        <div id="open-trades-title">OPEN TRADES ON THIS COIN</div>
-      </div>
-      <div id="trade-controls">
-        <div class="trade-col">
-          <div class="trade-label">STAKE ($)</div>
-          <input id="stake-input" type="number" value="500" min="1">
-          <div class="stake-presets">
-            <button class="preset-btn" onclick="setStake(100)">$100</button>
-            <button class="preset-btn" onclick="setStake(500)">$500</button>
-            <button class="preset-btn" onclick="setStake(1000)">$1K</button>
-            <button class="preset-btn" onclick="setStakeMax()">MAX</button>
-          </div>
-        </div>
-        <div class="trade-col">
-          <div class="trade-label">DIRECTION</div>
-          <div class="dir-btns">
-            <button id="btn-up" onclick="openTrade('up')">▲ UP</button>
-            <button id="btn-dn" onclick="openTrade('dn')">▼ DOWN</button>
-          </div>
-          <div class="trade-label" id="trade-hint" style="line-height:1.8">PREDICT PRICE<br>MOVEMENT</div>
-        </div>
-      </div>
+      <button id="next-btn" onclick="nextRound()">NEXT PROMPT ▶</button>
     </div>
   </div>
 
-  <!-- TRADES -->
-  <div id="trades-screen" class="screen">
-    <div id="no-trades">NO OPEN TRADES YET<br><br>GO TO MARKET AND<br>PLACE A BET</div>
-  </div>
-
-  <!-- HISTORY -->
-  <div id="history-screen" class="screen">
-    <div id="no-history">NO CLOSED TRADES YET</div>
-  </div>
-
-  <!-- STATS -->
-  <div id="stats-screen" class="screen">
-    <div class="stats-title">YOUR STATS</div>
-    <div class="stats-grid">
-      <div class="stat-box">
-        <div class="stat-box-label">NET WORTH</div>
-        <div class="stat-box-val" id="stat-worth">$10,000</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-box-label">TOTAL P&L</div>
-        <div class="stat-box-val" id="stat-pnl">$0</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-box-label">WIN RATE</div>
-        <div class="stat-box-val" id="stat-win">0%</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-box-label">TOTAL TRADES</div>
-        <div class="stat-box-val" id="stat-trades">0</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-box-label">BEST TRADE</div>
-        <div class="stat-box-val pos" id="stat-best">$0</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-box-label">WORST TRADE</div>
-        <div class="stat-box-val neg" id="stat-worst">$0</div>
-      </div>
+  <!-- END -->
+  <div id="end-screen" class="screen">
+    <div id="end-ship">🚀</div>
+    <div id="end-title">MISSION COMPLETE</div>
+    <div id="new-hi-score">★ NEW RECORD ★</div>
+    <div id="end-depth">0 km</div>
+    <div id="end-depth-label">TOTAL DEPTH REACHED</div>
+    <div id="end-tier-badge"></div>
+    <div id="end-stats-grid">
+      <div class="end-stat"><div class="end-stat-label">BEST ROUND</div><div class="end-stat-val" id="end-best">—</div></div>
+      <div class="end-stat"><div class="end-stat-label">RAREST ANSWER</div><div class="end-stat-val" id="end-rarest">—</div></div>
+      <div class="end-stat"><div class="end-stat-label">AVG RARITY</div><div class="end-stat-val" id="end-avg">—</div></div>
+      <div class="end-stat"><div class="end-stat-label">ROUNDS</div><div class="end-stat-val">5</div></div>
     </div>
-    <button id="reset-btn" onclick="resetGame()">RESET ACCOUNT</button>
+    <div id="end-answers-wrap"></div>
+    <button id="play-again-btn" onclick="startGame()">▶ PLAY AGAIN</button>
   </div>
 
 </div>
-
-<!-- TOAST -->
-<div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════
-// COINS
-// ═══════════════════════════════════════════
-const COINS = [
-  { sym:'BTC', name:'BITCOIN',  price:0, basePrice:103000, vol:0.004 },
-  { sym:'ETH', name:'ETHEREUM', price:0, basePrice:2500,   vol:0.005 },
-  { sym:'SOL', name:'SOLANA',   price:0, basePrice:165,    vol:0.007 },
-  { sym:'BNB', name:'BNB',      price:0, basePrice:605,    vol:0.004 },
-  { sym:'XRP', name:'XRP',      price:0, basePrice:2.30,   vol:0.008 },
-  { sym:'ADA', name:'CARDANO',  price:0, basePrice:0.72,   vol:0.009 },
-  { sym:'DOGE',name:'DOGECOIN', price:0, basePrice:0.21,   vol:0.012 },
-  { sym:'AVAX',name:'AVALANCHE',price:0, basePrice:23,     vol:0.008 },
+// ── STARS ──
+function makeStars() {
+  const el = document.getElementById('stars');
+  const style = document.createElement('style');
+  style.textContent = `@keyframes twinkle{0%,100%{opacity:0.7}50%{opacity:0.1}}`;
+  document.head.appendChild(style);
+  for (let i = 0; i < 100; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() < 0.08 ? 3 : Math.random() < 0.25 ? 2 : 1;
+    s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;opacity:${0.3+Math.random()*0.7};animation:twinkle ${2+Math.random()*5}s ${Math.random()*5}s infinite;`;
+    el.appendChild(s);
+  }
+}
+makeStars();
+
+// ── PROMPT POOL — 100 prompts ──
+const PROMPT_POOL = [
+  // General
+  "Name something you'd find in a kitchen",
+  "Name a reason someone might be late",
+  "Name something you do before bed",
+  "Name something that's better cold",
+  "Name a word that rhymes with 'moon'",
+  "Name something you'd take to a desert island",
+  "Name something that makes a loud noise",
+  "Name a thing you can do with your hands",
+  "Name something people collect",
+  "Name a reason to call in sick",
+  "Name something you find under a bed",
+  "Name something that gets better with age",
+  "Name a type of weather",
+  "Name something you'd find in a wallet",
+  "Name something that has buttons",
+  "Name something associated with a spy",
+  "Name a thing you'd find in outer space",
+  "Name something that glows in the dark",
+  "Name a word that sounds rude but isn't",
+  "Name something you'd find at the bottom of the ocean",
+  "Name a reason to stay up all night",
+  "Name something that starts with the letter Z",
+  "Name a thing you can fold",
+  "Name something that has a strong smell",
+  "Name something that's always running",
+  "Name a thing you can break without touching it",
+  "Name something you'd find in a haunted house",
+  "Name a thing that's always moving",
+  "Name something you'd put in a time capsule",
+  "Name a reason people cry",
+  "Name something that comes in pairs",
+  "Name a thing you can do quietly",
+  "Name something that's changed in the last 10 years",
+  "Name something you'd find in a supervillain's lair",
+  "Name a word that means happy",
+  "Name a thing that's surprisingly heavy",
+  "Name something with a hole in it",
+  "Name something you'd find in a pirate's chest",
+  "Name a thing that's red",
+  "Name something you'd find in a doctor's bag",
+  "Name a thing you'd only do in private",
+  "Name something that's impossible to do with your eyes closed",
+  "Name a thing that gets worse the more you think about it",
+  "Name something you'd find in a celebrity's fridge",
+  "Name a thing that's surprisingly addictive",
+  "Name something that's free but feels expensive",
+  "Name a thing that's better in theory than in practice",
+  "Name something that's always disappointing",
+  "Name a thing that's weirdly satisfying",
+  "Name something you'd regret googling",
+
+  // UK themed
+  "Name something you'd find at a British seaside",
+  "Name a word only British people use",
+  "Name something you'd overhear on the London Underground",
+  "Name a classic British excuse",
+  "Name something British people apologise for unnecessarily",
+  "Name a thing you'd find at a village fete",
+  "Name a British TV show from the 90s",
+  "Name something only British people queue for",
+  "Name a food that's very British",
+  "Name something you'd find in a proper English pub",
+  "Name a British phrase that confuses Americans",
+  "Name something people complain about in Britain",
+  "Name a thing British people are secretly proud of",
+  "Name a classic British insult that sounds polite",
+  "Name something that's always warm in Britain (not the weather)",
+  "Name a type of biscuit a British person would dunk in tea",
+  "Name a thing you'd hear at a British BBQ (in the rain)",
+  "Name a word British people say instead of 'angry'",
+  "Name something every British household has",
+  "Name a reason a British person would say 'I'm fine' when they're not",
+
+  // Cheeky / sexy (tasteful)
+  "Name something you'd whisper in someone's ear",
+  "Name a reason to cancel plans (the real reason)",
+  "Name something you'd do if no one was watching",
+  "Name a thing that's better with two people",
+  "Name something that's technically legal but feels naughty",
+  "Name a word that feels more exciting than it is",
+  "Name a thing you'd find in someone's bedside drawer",
+  "Name a reason to turn the lights off",
+  "Name something that's hard to stop once you start",
+  "Name a thing you'd never admit to your parents",
+  "Name a guilty pleasure you'd lie about having",
+  "Name something people do in secret that they shouldn't be ashamed of",
+  "Name a reason to stay in bed all day",
+  "Name something that gets better after midnight",
+  "Name a thing you'd tell your best friend but not your boss",
+  "Name a word that sounds more exciting when whispered",
+  "Name something that's worth being naughty for",
+  "Name a reason to book a hotel room for one night",
+  "Name a thing that's more fun after a glass of wine",
+  "Name something that makes you instantly more attractive",
+
+  // Fun / unexpected
+  "Name a reason an alien might reject Earth",
+  "Name something a ghost would find annoying",
+  "Name a job that definitely exists but no one talks about",
+  "Name something that would make a terrible superpower",
+  "Name a thing that would be better if it was tiny",
+  "Name a word that doesn't sound like what it means",
+  "Name something that would ruin a first impression",
+  "Name a thing you'd find in a wizard's pocket",
+  "Name a terrible name for a band",
+  "Name something that's weirdly competitive",
 ];
 
-// ═══════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════
-const INITIAL_BALANCE = 10000;
-let state = loadState();
+const ROUNDS = 5;
+let gameState = { round:0, depth:0, prompts:[], answers:[], scores:[], rarities:[] };
 
-function loadState() {
+function getHiScore() { try { return parseInt(localStorage.getItem('spacedive-hi')||'0'); } catch(e){ return 0; } }
+function setHiScore(v) { try { localStorage.setItem('spacedive-hi', v); } catch(e){} }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  // scroll to top on iOS
+  const el = document.getElementById(id);
+  if (el) el.scrollTop = 0;
+}
+
+function startGame() {
+  const shuffled = [...PROMPT_POOL].sort(()=>Math.random()-0.5);
+  gameState = { round:0, depth:0, prompts:shuffled.slice(0,ROUNDS), answers:[], scores:[], rarities:[] };
+  document.getElementById('hi-score-val').textContent = getHiScore();
+  showScreen('game-screen');
+  loadRound();
+}
+
+function loadRound() {
+  const r = gameState.round;
+  document.getElementById('round-pip-row').innerHTML = Array.from({length:ROUNDS},(_,i)=>
+    `<div class="round-pip ${i<r?'done':i===r?'current':''}"></div>`).join('');
+  document.getElementById('round-tag').textContent = `ROUND ${r+1} OF ${ROUNDS}`;
+  document.getElementById('prompt-text').textContent = gameState.prompts[r];
+  document.getElementById('answer-input').value='';
+  document.getElementById('answer-input').disabled=false;
+  document.getElementById('submit-btn').disabled=false;
+  document.getElementById('result-panel').classList.remove('visible');
+  document.getElementById('next-btn').classList.remove('visible');
+  document.getElementById('loading-indicator').classList.remove('visible');
+  updateDepthUI();
+  // slight delay before focus on iOS to avoid keyboard weirdness
+  setTimeout(()=>{ document.getElementById('answer-input').focus(); }, 300);
+}
+
+function updateDepthUI() {
+  const d = Math.round(gameState.depth);
+  document.getElementById('depth-num').textContent = d+' km';
+  document.getElementById('depth-fill').style.width = Math.min(100,(d/700)*100)+'%';
+}
+
+async function submitAnswer() {
+  const input = document.getElementById('answer-input');
+  const answer = input.value.trim();
+  if (!answer) return;
+  // blur keyboard on mobile
+  input.blur();
+  input.disabled = true;
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('loading-indicator').classList.add('visible');
+  document.getElementById('result-panel').classList.remove('visible');
+  document.getElementById('next-btn').classList.remove('visible');
+  const prompt = gameState.prompts[gameState.round];
   try {
-    const s = localStorage.getItem('tib-game');
-    if (s) return JSON.parse(s);
-  } catch(e) {}
-  return {
-    balance: INITIAL_BALANCE,
-    trades: [],
-    history: [],
-    selectedCoin: 0,
-  };
-}
-function saveState() {
-  try { localStorage.setItem('tib-game', JSON.stringify(state)); } catch(e) {}
-}
-
-// Price history per coin (last 120 ticks)
-const priceHistory = {};
-COINS.forEach(c => {
-  c.price = c.basePrice * (1 + (Math.random()-0.5)*0.02);
-  priceHistory[c.sym] = [c.price];
-});
-
-// ═══════════════════════════════════════════
-// PRICE ENGINE — tick every 1.5s
-// ═══════════════════════════════════════════
-let tickCount = 0;
-function tick() {
-  COINS.forEach(c => {
-    // Random walk with mean reversion
-    const drift = (c.basePrice - c.price) * 0.002;
-    const shock = c.price * c.vol * (Math.random()-0.5) * 2;
-    c.price = Math.max(c.price * 0.85, c.price + drift + shock);
-    const hist = priceHistory[c.sym];
-    hist.push(c.price);
-    if (hist.length > 150) hist.shift();
-  });
-  tickCount++;
-  updateUI();
-  saveState();
-}
-setInterval(tick, 1500);
-
-// ═══════════════════════════════════════════
-// UI UPDATE
-// ═══════════════════════════════════════════
-function updateUI() {
-  updateHeader();
-  updateCoinList();
-  updateChartHeader();
-  drawChart();
-  updateInlineTradesPanel();
-  updateTradesScreen();
-  updateStats();
-}
-
-function updateInlineTradesPanel() {
-  const c = COINS[state.selectedCoin];
-  const panel = document.getElementById('open-trades-panel');
-  const coinTrades = state.trades.filter(t => t.sym === c.sym);
-  if (!coinTrades.length) {
-    panel.classList.remove('visible');
-    return;
+    const result = await scoreWithAI(prompt, answer);
+    processResult(answer, result);
+  } catch(e) {
+    processResult(answer, { rarity:50, depthGained:50, tier:'RARE', reasoning:'Signal lost — fallback score used.' });
   }
+}
+
+async function scoreWithAI(prompt, answer) {
+  const sys = `You are the scoring engine for a word game called Space Dive, similar to Krillion. Players get a prompt and type an answer. RARER, more unexpected answers score higher. Common obvious answers score low.
+
+Respond ONLY with valid JSON, no markdown, no explanation:
+{"rarity":<1-100>,"tier":<"COMMON"|"UNCOMMON"|"RARE"|"EPIC"|"LEGENDARY"|"ONE IN A MILLION">,"depthGained":<10-200>,"reasoning":<max 10 words, punchy>}
+
+Tiers: COMMON(1-20,depth 10-40) UNCOMMON(21-40,40-80) RARE(41-60,80-110) EPIC(61-80,110-150) LEGENDARY(81-95,150-180) ONE IN A MILLION(96-100,180-200).
+Be consistent. Think about what most people would say first — that's COMMON.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:1000,
+      system:sys,
+      messages:[{role:'user',content:`Prompt: "${prompt}"\nAnswer: "${answer}"`}]
+    })
+  });
+  const data = await res.json();
+  const text = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+  return JSON.parse(text);
+}
+
+const TIER_COLORS = {
+  'COMMON':           {color:'#666',bar:'#444'},
+  'UNCOMMON':         {color:'#4a9eff',bar:'#4a9eff'},
+  'RARE':             {color:'#00ff88',bar:'#00ff88'},
+  'EPIC':             {color:'#aa44ff',bar:'#aa44ff'},
+  'LEGENDARY':        {color:'#ffd700',bar:'#ffd700'},
+  'ONE IN A MILLION': {color:'#ffffff',bar:'linear-gradient(90deg,#00aaff,#aa44ff,#ffd700)'},
+};
+
+function processResult(answer, result) {
+  document.getElementById('loading-indicator').classList.remove('visible');
+  gameState.answers.push(answer);
+  gameState.scores.push(result.depthGained);
+  gameState.rarities.push(result.rarity);
+  gameState.depth += result.depthGained;
+  updateDepthUI();
+
+  const panel = document.getElementById('result-panel');
   panel.classList.add('visible');
-  const title = document.getElementById('open-trades-title');
-  const rows = coinTrades.map(t => {
-    const pnl = calcPnl(t);
-    const pnlClass = pnl >= 0 ? 'pos' : 'neg';
-    return `<div class="inline-trade">
-      <div class="it-dir ${t.dir==='up'?'up-dir':'dn-dir'}">${t.dir==='up'?'▲ LONG':'▼ SHORT'}</div>
-      <div class="it-stake">${fmt(t.stake)}</div>
-      <div class="it-entry">ENTRY ${fmt(t.entryPrice)}</div>
-      <div class="it-pnl ${pnlClass}">${fmtPnl(pnl)}</div>
-      <button class="it-close" onclick="closeTrade(${t.id})">CLOSE ×</button>
-    </div>`;
-  }).join('');
-  panel.innerHTML = '<div id="open-trades-title">OPEN TRADES — ' + c.sym + '</div>' + rows;
-}
+  const tc = TIER_COLORS[result.tier] || TIER_COLORS['COMMON'];
+  const bar = document.getElementById('result-rarity-bar');
+  bar.style.background = tc.bar;
+  setTimeout(()=>{ bar.style.width = result.rarity+'%'; }, 60);
+  document.getElementById('result-tier').textContent = result.tier;
+  document.getElementById('result-tier').style.color = tc.color;
+  document.getElementById('result-depth-gained').textContent = `+${Math.round(result.depthGained)} km depth gained`;
+  document.getElementById('result-reasoning').textContent = result.reasoning;
 
-function fmt(n) {
-  if (Math.abs(n) >= 1000000) return '$' + (n/1000000).toFixed(2) + 'M';
-  if (Math.abs(n) >= 1000)    return '$' + n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
-  if (Math.abs(n) >= 1)       return '$' + n.toFixed(2);
-  return '$' + n.toFixed(4);
-}
-function fmtPnl(n) {
-  const s = n >= 0 ? '+' : '';
-  return s + fmt(n);
-}
-function pct(old, now) {
-  return ((now-old)/old*100).toFixed(2);
-}
+  if (result.rarity >= 61) triggerWarp(result.tier);
 
-function updateHeader() {
-  // Net worth = balance + open trade stakes + unrealised PnL
-  const openPnl = state.trades.reduce((sum,t) => sum + calcPnl(t), 0);
-  const netWorth = state.balance + openPnl;
-  const totalPnl = netWorth - INITIAL_BALANCE;
-  document.getElementById('wallet-val').textContent = fmt(state.balance);
-  const pnlEl = document.getElementById('pnl-val');
-  pnlEl.textContent = fmtPnl(totalPnl);
-  pnlEl.style.color = totalPnl >= 0 ? '#fff' : '#666';
-}
-
-function updateCoinList() {
-  const el = document.getElementById('coin-list');
-  el.innerHTML = COINS.map((c,i) => {
-    const hist = priceHistory[c.sym];
-    const open = hist[0];
-    const chgVal = parseFloat(pct(open, c.price));
-    const isUp = chgVal >= 0;
-    return `<div class="coin-item ${i===state.selectedCoin?'active':''}" onclick="selectCoin(${i})">
-      <div class="coin-sym">${c.sym}</div>
-      <div class="coin-price">${fmt(c.price)}</div>
-      <div class="coin-chg ${isUp?'up':'dn'}">${isUp?'▲':'▼'} ${Math.abs(chgVal)}%</div>
-    </div>`;
-  }).join('');
-}
-
-function updateChartHeader() {
-  const c = COINS[state.selectedCoin];
-  const hist = priceHistory[c.sym];
-  const chgVal = parseFloat(pct(hist[0], c.price));
-  const isUp = chgVal >= 0;
-  document.getElementById('chart-coin-name').textContent = c.name;
-  document.getElementById('chart-coin-price').textContent = fmt(c.price);
-  document.getElementById('chart-coin-chg').textContent =
-    (isUp?'▲ +':'▼ ') + Math.abs(chgVal) + '% SESSION';
-  document.getElementById('chart-coin-chg').style.color = isUp ? '#fff' : '#666';
-}
-
-function drawChart() {
-  const canvas = document.getElementById('chart-canvas');
-  const wrap   = document.getElementById('chart-canvas-wrap');
-  const dpr    = window.devicePixelRatio || 1;
-  const W = wrap.clientWidth;
-  const H = wrap.clientHeight;
-  if (!W || !H) return;
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = H + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  const c = COINS[state.selectedCoin];
-  const hist = priceHistory[c.sym];
-  if (hist.length < 2) return;
-
-  const PAD = { top:8, right:8, bottom:20, left:60 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-
-  const min = Math.min(...hist) * 0.998;
-  const max = Math.max(...hist) * 1.002;
-
-  const toX = i => PAD.left + (i/(hist.length-1)) * cW;
-  const toY = v => PAD.top + (1-(v-min)/(max-min)) * cH;
-
-  // Background
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0,0,W,H);
-
-  // Grid — pixel dots
-  ctx.fillStyle = '#1a1a1a';
-  for (let gy=0; gy<=4; gy++) {
-    const y = PAD.top + gy*cH/4;
-    for (let x=PAD.left; x<W-PAD.right; x+=6) {
-      ctx.fillRect(x,y,2,1);
-    }
-    // Y label
-    const val = max - gy*(max-min)/4;
-    ctx.fillStyle = '#444';
-    ctx.font = `${6*dpr/dpr}px 'Press Start 2P'`;
-    ctx.textAlign = 'right';
-    ctx.fillText(fmt(val).replace('$',''), PAD.left-4, y+3);
-    ctx.fillStyle = '#1a1a1a';
+  if (gameState.round < ROUNDS-1) {
+    document.getElementById('next-btn').classList.add('visible');
+  } else {
+    setTimeout(()=>endGame(), result.rarity >= 61 ? 1800 : 600);
   }
 
-  // Open trade entry lines
-  state.trades.filter(t=>t.sym===c.sym).forEach(t => {
-    const entryY = toY(t.entryPrice);
-    ctx.strokeStyle = '#444';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.moveTo(PAD.left, entryY); ctx.lineTo(W-PAD.right, entryY); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#444';
-    ctx.font = "6px 'Press Start 2P'";
-    ctx.textAlign = 'left';
-    ctx.fillText((t.dir==='up'?'▲':'▼')+' ENTRY', PAD.left+4, entryY-3);
-  });
+  // scroll result into view on mobile
+  setTimeout(()=>{
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 200);
+}
 
-  // Price line — pixel style (step)
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  hist.forEach((v,i) => {
-    const x = toX(i), y = toY(v);
-    if (i===0) ctx.moveTo(x,y);
-    else ctx.lineTo(x,y);
-  });
-  ctx.stroke();
+function triggerWarp(tier) {
+  const el = document.getElementById('warp-overlay');
+  const txt = document.getElementById('warp-text');
+  txt.textContent = tier==='ONE IN A MILLION' ? '⚡ ONE IN A MILLION ⚡' :
+                    tier==='LEGENDARY' ? '★ LEGENDARY DIVE ★' :
+                    tier==='EPIC' ? '▲ EPIC ANSWER ▲' : 'WARPING DEEPER';
+  el.classList.add('active');
+  setTimeout(()=>el.classList.remove('active'), 1200);
+}
 
-  // Fill below
-  ctx.beginPath();
-  hist.forEach((v,i) => {
-    const x = toX(i), y = toY(v);
-    if (i===0) ctx.moveTo(x,y);
-    else ctx.lineTo(x,y);
-  });
-  ctx.lineTo(toX(hist.length-1), PAD.top+cH);
-  ctx.lineTo(toX(0), PAD.top+cH);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.04)';
-  ctx.fill();
+function nextRound() {
+  gameState.round++;
+  loadRound();
+  // scroll game inner to top
+  setTimeout(()=>{ document.getElementById('game-inner').scrollTop = 0; }, 50);
+}
 
-  // Current price dot (blinking)
-  if (tickCount%2===0) {
-    const cx2 = toX(hist.length-1), cy2 = toY(hist[hist.length-1]);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(cx2-3, cy2-3, 6, 6);
+function endGame() {
+  showScreen('end-screen');
+  const depth = Math.round(gameState.depth);
+  const hi = getHiScore();
+  document.getElementById('end-depth').textContent = depth+' km';
+  if (depth > hi) {
+    setHiScore(depth);
+    document.getElementById('new-hi-score').style.display = 'block';
+  } else {
+    document.getElementById('new-hi-score').style.display = 'none';
   }
-
-  // X axis time labels
-  ctx.fillStyle = '#333';
-  ctx.font = "6px 'Press Start 2P'";
-  ctx.textAlign = 'center';
-  const labelCount = Math.min(5, hist.length);
-  for (let i=0; i<labelCount; i++) {
-    const idx = Math.floor(i*(hist.length-1)/(labelCount-1));
-    const secsAgo = (hist.length-1-idx) * 1.5;
-    const label = secsAgo < 60 ? Math.round(secsAgo)+'s' :
-                  secsAgo < 3600 ? Math.round(secsAgo/60)+'m' : Math.round(secsAgo/3600)+'h';
-    ctx.fillText(label==='0s'?'NOW':'-'+label, toX(idx), H-6);
-  }
-}
-
-// ═══════════════════════════════════════════
-// TRADE LOGIC
-// ═══════════════════════════════════════════
-function calcPnl(trade) {
-  const c = COINS.find(x=>x.sym===trade.sym);
-  if (!c) return 0;
-  const priceMoved = (c.price - trade.entryPrice) / trade.entryPrice;
-  const leverage = 5; // 5x leverage for fun
-  const pnl = trade.stake * priceMoved * leverage * (trade.dir==='up'?1:-1);
-  return Math.max(-trade.stake, pnl); // cap loss at stake
-}
-
-function openTrade(dir) {
-  const stake = parseFloat(document.getElementById('stake-input').value) || 0;
-  if (stake <= 0) { showToast('ENTER A STAKE AMOUNT'); return; }
-  if (stake > state.balance) { showToast('INSUFFICIENT BALANCE'); return; }
-  const c = COINS[state.selectedCoin];
-  state.balance -= stake;
-  state.trades.push({
-    id: Date.now(),
-    sym: c.sym,
-    name: c.name,
-    dir,
-    stake,
-    entryPrice: c.price,
-    openedAt: new Date().toLocaleTimeString(),
-  });
-  saveState();
-  showToast(dir==='up'?'▲ LONG OPENED':'▼ SHORT OPENED');
-  updateUI();
-}
-
-function closeTrade(id) {
-  const idx = state.trades.findIndex(t=>t.id===id);
-  if (idx<0) return;
-  const trade = state.trades[idx];
-  const pnl = calcPnl(trade);
-  const returned = trade.stake + pnl;
-  state.balance += returned;
-  state.trades.splice(idx,1);
-  state.history.unshift({
-    ...trade,
-    pnl,
-    closedAt: new Date().toLocaleTimeString(),
-  });
-  if (state.history.length > 50) state.history.pop();
-  saveState();
-  showToast(pnl>=0 ? `PROFIT: +${fmt(pnl)}` : `LOSS: ${fmt(pnl)}`);
-  updateUI();
-}
-
-// ═══════════════════════════════════════════
-// TRADES SCREEN
-// ═══════════════════════════════════════════
-function updateTradesScreen() {
-  const el = document.getElementById('trades-screen');
-  if (!state.trades.length) {
-    el.innerHTML = '<div id="no-trades">NO OPEN TRADES YET<br><br>GO TO MARKET AND<br>PLACE A BET</div>';
-    return;
-  }
-  el.innerHTML = state.trades.map(t => {
-    const pnl = calcPnl(t);
-    const pnlClass = pnl>=0?'pos':'neg';
-    return `<div class="trade-card">
-      <div class="tc-sym">${t.sym}</div>
-      <div class="tc-dir ${t.dir==='up'?'up-dir':'dn-dir'}">${t.dir==='up'?'▲ LONG':'▼ SHORT'}</div>
-      <div class="tc-stake">${fmt(t.stake)}</div>
-      <div class="tc-pnl ${pnlClass}">${fmtPnl(pnl)}</div>
-      <button class="close-btn" onclick="closeTrade(${t.id})">CLOSE</button>
+  const avg = gameState.rarities.reduce((a,b)=>a+b,0)/gameState.rarities.length;
+  const finalTier = avg>=80?'LEGENDARY EXPLORER':avg>=60?'DEEP DIVER':avg>=40?'SPACE CADET':avg>=20?'ORBIT HOPPER':'SURFACE SKIMMER';
+  const badge = document.getElementById('end-tier-badge');
+  badge.textContent = finalTier;
+  badge.style.color = avg>=80?'var(--gold)':avg>=60?'var(--warp)':avg>=40?'var(--accent)':'var(--dim)';
+  badge.style.borderColor = badge.style.color;
+  const bestRound = Math.max(...gameState.scores);
+  const rarestIdx = gameState.rarities.indexOf(Math.max(...gameState.rarities));
+  document.getElementById('end-best').textContent = '+'+Math.round(bestRound)+' km';
+  document.getElementById('end-rarest').textContent = '"'+(gameState.answers[rarestIdx]||'—')+'"';
+  document.getElementById('end-avg').textContent = Math.round(avg)+'/100';
+  const wrap = document.getElementById('end-answers-wrap');
+  wrap.innerHTML = gameState.prompts.map((p,i)=>{
+    const tc = TIER_COLORS[tierLabel(gameState.rarities[i])]||TIER_COLORS['COMMON'];
+    return `<div class="end-answer-row">
+      <div class="ear-prompt">${p.replace(/^Name /,'')}</div>
+      <div class="ear-answer" style="color:${tc.color}">${gameState.answers[i]||'—'}</div>
+      <div class="ear-depth">+${Math.round(gameState.scores[i])}km</div>
     </div>`;
   }).join('');
 }
 
-// ═══════════════════════════════════════════
-// HISTORY SCREEN
-// ═══════════════════════════════════════════
-function renderHistory() {
-  const el = document.getElementById('history-screen');
-  if (!state.history.length) {
-    el.innerHTML = '<div id="no-history">NO CLOSED TRADES YET</div>';
-    return;
-  }
-  el.innerHTML = state.history.map(h => {
-    const pnlClass = h.pnl>=0?'pos':'neg';
-    return `<div class="hist-row">
-      <div class="hr-sym">${h.sym}</div>
-      <div class="hr-dir">${h.dir==='up'?'▲ L':'▼ S'}</div>
-      <div class="hr-stake">${fmt(h.stake)}</div>
-      <div class="hr-pnl ${pnlClass}">${fmtPnl(h.pnl)}</div>
-      <div class="hr-date">${h.closedAt}</div>
-    </div>`;
-  }).join('');
+function tierLabel(r) {
+  if (r>=96) return 'ONE IN A MILLION';
+  if (r>=81) return 'LEGENDARY';
+  if (r>=61) return 'EPIC';
+  if (r>=41) return 'RARE';
+  if (r>=21) return 'UNCOMMON';
+  return 'COMMON';
 }
 
-// ═══════════════════════════════════════════
-// STATS
-// ═══════════════════════════════════════════
-function updateStats() {
-  const openPnl = state.trades.reduce((s,t)=>s+calcPnl(t),0);
-  const netWorth = state.balance + openPnl;
-  const totalPnl = netWorth - INITIAL_BALANCE;
-  const wins = state.history.filter(h=>h.pnl>0).length;
-  const total = state.history.length;
-  const winRate = total>0 ? Math.round(wins/total*100) : 0;
-  const best  = total>0 ? Math.max(...state.history.map(h=>h.pnl)) : 0;
-  const worst = total>0 ? Math.min(...state.history.map(h=>h.pnl)) : 0;
-
-  document.getElementById('stat-worth').textContent = fmt(netWorth);
-  const pnlEl = document.getElementById('stat-pnl');
-  pnlEl.textContent = fmtPnl(totalPnl);
-  pnlEl.className = 'stat-box-val ' + (totalPnl>=0?'pos':'neg');
-  document.getElementById('stat-win').textContent = winRate+'%';
-  document.getElementById('stat-trades').textContent = total;
-  document.getElementById('stat-best').textContent = best>0?'+'+fmt(best):fmt(0);
-  document.getElementById('stat-worst').textContent = worst<0?fmt(worst):fmt(0);
-}
-
-// ═══════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════
-function selectCoin(i) {
-  state.selectedCoin = i;
-  updateUI();
-}
-function setStake(v) {
-  document.getElementById('stake-input').value = v;
-}
-function setStakeMax() {
-  document.getElementById('stake-input').value = Math.floor(state.balance);
-}
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.style.display='block';
-  setTimeout(()=>{ el.style.display='none'; }, 2000);
-}
-function resetGame() {
-  if (!confirm('RESET ACCOUNT TO $10,000?')) return;
-  state = { balance:INITIAL_BALANCE, trades:[], history:[], selectedCoin:0 };
-  saveState(); updateUI();
-  showToast('ACCOUNT RESET');
-}
-
-// ═══════════════════════════════════════════
-// TABS
-// ═══════════════════════════════════════════
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    tab.classList.add('active');
-    const screen = document.getElementById(tab.dataset.screen+'-screen');
-    screen.classList.add('active');
-    if (tab.dataset.screen==='history') renderHistory();
-    if (tab.dataset.screen==='stats') updateStats();
-  });
+document.getElementById('answer-input').addEventListener('keydown', e=>{
+  if (e.key==='Enter') submitAnswer();
 });
-
-// Resize chart on window resize
-window.addEventListener('resize', drawChart);
-
-// ═══════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════
-updateUI();
+document.getElementById('hi-score-val').textContent = getHiScore();
 </script>
 </body>
 </html>
